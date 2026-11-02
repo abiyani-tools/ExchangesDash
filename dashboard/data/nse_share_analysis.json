@@ -1,61 +1,61 @@
 {
-  "updated_at": "2026-11-02T04:46:25Z",
+  "updated_at": "2026-11-02T05:58:55Z",
   "ticker": "NSE.BO",
   "ma_window": 45,
   "regression_start": "2026-09-24",
   "n_days": 26,
   "ma_window_comparison": {
     "20": {
-      "r_squared": 0.005,
-      "pearson_r": -0.071,
+      "r_squared": 0.0069,
+      "pearson_r": -0.0832,
       "n": 26
     },
     "30": {
-      "r_squared": 0.0008,
-      "pearson_r": -0.0275,
+      "r_squared": 0.0018,
+      "pearson_r": -0.0421,
       "n": 26
     },
     "45": {
-      "r_squared": 0.0042,
-      "pearson_r": 0.0651,
+      "r_squared": 0.0026,
+      "pearson_r": 0.0506,
       "n": 26
     },
     "50": {
-      "r_squared": 0.0131,
-      "pearson_r": 0.1145,
+      "r_squared": 0.0096,
+      "pearson_r": 0.0982,
       "n": 26
     },
     "60": {
-      "r_squared": 0.0031,
-      "pearson_r": 0.0557,
+      "r_squared": 0.0016,
+      "pearson_r": 0.0405,
       "n": 26
     },
     "90": {
-      "r_squared": 0.1985,
-      "pearson_r": 0.4455,
+      "r_squared": 0.184,
+      "pearson_r": 0.4289,
       "n": 26
     }
   },
   "regression": {
-    "slope": 0.6651,
-    "intercept": 1719.91,
-    "r_squared": 0.0042,
-    "pearson_r": 0.0651,
-    "equation": "Price = 0.67 \u00d7 Rev_MA45[t-1] + 1719.91",
+    "slope": 0.5136,
+    "intercept": 1726.82,
+    "r_squared": 0.0026,
+    "pearson_r": 0.0506,
+    "equation": "Price = 0.51 \u00d7 Rev_MA45[t-1] + 1726.82",
     "fit": "weak"
   },
   "methodology": {
     "revenue_lag_days": 1,
     "ma_basis": "all revenue trading days",
-    "slope_se_newey_west": 3.0143,
-    "t_stat_newey_west": 0.22,
+    "slope_se_newey_west": 2.974,
+    "t_stat_newey_west": 0.17,
     "newey_west_lags": 6,
-    "durbin_watson": 0.504,
+    "durbin_watson": 0.513,
     "holdout": null,
     "fair_value_supported": false,
     "gate_reasons": [
       "only 26 observations (needs 60)",
-      "slope not significant (Newey-West t = 0.22, needs 2)"
+      "slope not significant (Newey-West t = 0.17, needs 2)"
     ],
     "thresholds": {
       "min_n": 60,
@@ -68,7 +68,7 @@
     "date": "2026-11-02",
     "revenue_cr": null,
     "rev_ma": 53.077,
-    "price_actual": 1782.25,
+    "price_actual": 1775.0,
     "price_pred": null,
     "error_pct": null
   },
@@ -252,7 +252,7 @@
       "date": "2026-11-02",
       "revenue_cr": null,
       "rev_ma": 53.077,
-      "price": 1782.25,
+      "price": 1775.0,
       "price_pred": null
     }
   ],
