@@ -56,6 +56,7 @@ const BRK_DAILY_SEGMENTS = [
 ];
 const BRK_CALIB_SEGMENTS = { fo: 'F&O', cash: 'Cash', comm: 'Commodities', mtf: 'MTF' };
 
+// The views show each broker's latest live run (sb_runs mode 'live')
 let BRK = { mode: 'live', brokers: null, summary: null, daily: null, calib: null, sel: {}, range: 120 };
 
 // Never add query parameters beyond these: /api/* is cached at Vercel's edge
@@ -67,7 +68,7 @@ function brkFetch(view, mode, broker = BRK_BROKER.id) {
 function brkSection(tab) { return brokerSection(BRK_BROKER.view, tab); }
 
 // A view's load(): the broker list once (to check the broker is active in
-// sb_brokers), then the Summary of its run (live or parity); daily and
+// sb_brokers), then the Summary of its latest live run; daily and
 // calibration load when their tab is shown. A broker without a published run
 // comes back with summary.run === null. Nothing changes once owns() is false.
 async function brkLoad(def, mode, owns = () => true) {
@@ -100,24 +101,6 @@ function brkShow(tab) {
   else if (tab === 'calib') buildBrokersCalibration();
 }
 
-// Reloads after a run change (live / parity) and redraws the open tab
-async function brkReload(mode) {
-  const key = currentExchange, tab = brkActiveTab();
-  const def = BRK_VIEWS.find(d => d.view === BRK_BROKER.view);
-  showLoading(key);
-  try {
-    await brkLoad(def, mode, () => currentExchange === key);
-    if (currentExchange !== key) return;
-    brkBuild();
-    updateBrokerHeaderInfo(brokerViewOf(key));
-    hideLoading();
-    brkShow(tab);
-  } catch (err) {
-    console.error(`Loading ${def.label} failed:`, err);
-    if (currentExchange === key) showLoadError(key, err);
-  }
-}
-
 // A view's meta(): header quarter and "Last Updated"
 function brkMeta() {
   const run = BRK.summary?.run;
@@ -126,16 +109,13 @@ function brkMeta() {
     : { quarter: '—', updated: `no ${BRK.mode} run yet`, updatedTitle: BRK.summary?.reason || '' };
 }
 
-// Shown on every Brokers tab while the chosen broker has no run of this mode
+// Shown on every tab of a broker with no published run yet
 function brkNoRunHTML() {
-  const b = BRK.brokers.find(x => x.broker_id === BRK_BROKER.id);
-  const other = BRK.mode === 'live' ? 'parity' : 'live';
   const name = escHtml(BRK_BROKER.name);
   return `<div class="chart-panel brk-norun" role="status">
     <b>No ${BRK.mode} run published for ${name} yet.</b>
     <p>${name}'s ADR appears here once the brokers-dashboard engine publishes a ${BRK.mode} run for it
     (<code>sb_runs</code>, broker <code>${escHtml(BRK_BROKER.id)}</code>). Nothing is estimated on this page in the meantime.</p>
-    ${b?.runs[other] ? `<p>A ${other} run as of ${escHtml(fmtLongDate(b.runs[other].as_of_date))} is published: <button type="button" class="rx-link" data-brk-mode="${other}">show it</button>.</p>` : ''}
   </div>`;
 }
 
@@ -214,8 +194,7 @@ function brkPanelKeys(panel, type) {
 }
 
 // The period a panel shows: the selected one, or the panel's latest when it
-// has none for the selection (the parity run's Cash panel keeps the
-// workbook's own Q4 FY 2026 / FY 2026 February labels)
+// has none for the selection (a panel's data can end earlier than the others')
 function brkPanelKey(panel, type) {
   const keys = brkPanelKeys(panel, type);
   return keys.includes(BRK.sel[type]) ? BRK.sel[type] : keys[0];
@@ -292,12 +271,10 @@ function brkPanelHTML(panel) {
 
 function brkRunBar() {
   const run = BRK.summary.run;
-  const modeBtn = (m, label) => `<button type="button" data-brk-mode="${m}" class="${BRK.mode === m ? 'active' : ''}" aria-pressed="${BRK.mode === m}">${label}</button>`;
   const published = run?.started_at ? fmtLongDate(run.started_at.slice(0, 10)) + ' ' + run.started_at.slice(11, 16) + ' UTC' : '—';
   return `<div class="brk-runbar">
-    <span class="brk-mode" role="group" aria-label="Run">${modeBtn('live', 'Live run')}${modeBtn('parity', 'Parity run')}</span>
     ${run ? `<span><b>${escHtml(BRK_BROKER.name)}</b> · as of <b>${escHtml(fmtLongDate(run.as_of_date))}</b></span>
-    <span>run <code title="${escHtml(run.run_id)}">${escHtml(run.run_id.slice(0, 8))}</code> (${escHtml(run.mode)}${run.parity_pass ? ', parity pass' : ''}) · published ${escHtml(published)}</span>
+    <span>run <code title="${escHtml(run.run_id)}">${escHtml(run.run_id.slice(0, 8))}</code> · published ${escHtml(published)}</span>
     <span class="brk-legend"><span class="brk-tag brk-tag--act">A</span> Actual: every day in a period ${escHtml(BRK_BROKER.name)} has reported · <span class="brk-tag brk-tag--est">E</span> Estimate: includes projected days after the last reported period · numbered notes say why a figure is missing · all figures are the engine's published values</span>`
     : `<span><b>${escHtml(BRK_BROKER.name)}</b> · no ${BRK.mode} run published yet</span>`}
     ${BRK_BROKER_BASIS[BRK_BROKER.id] ? `<p class="brk-basis" role="note">${escHtml(BRK_BROKER_BASIS[BRK_BROKER.id].note)}</p>` : ''}
@@ -317,12 +294,6 @@ document.addEventListener('change', e => {
   if (!sel) return;
   BRK.sel[sel.dataset.type] = sel.value;
   buildBrokersSummary();
-});
-
-// Live / parity run toggle
-document.addEventListener('click', e => {
-  const modeBtn = e.target.closest('[data-brk-mode]');
-  if (modeBtn && modeBtn.dataset.brkMode !== BRK.mode) brkReload(modeBtn.dataset.brkMode);
 });
 
 // ── Daily ADR ────────────────────────────────────────────────────────────────
