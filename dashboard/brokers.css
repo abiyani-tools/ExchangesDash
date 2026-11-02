@@ -1,0 +1,116 @@
+/* dashboard/brokers.css — Brokers views (js/30-brokers.js onward). Reuses the
+   Revenue Summary's Excel tables (.xl-segment, .xl-period-table, .wire-table
+   in style.css); this file adds only the section's layout, run bar and tags. */
+
+.brk-wrap { padding: var(--space-3) var(--space-2) var(--space-6); }
+
+/* Run bar: which published run the figures come from */
+.brk-runbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: var(--space-3);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.brk-runbar b { color: var(--color-text); font-weight: 600; }
+.brk-runbar code { font-size: 11px; }
+.brk-mode { display: inline-flex; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; }
+.brk-mode button {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.brk-mode button.active { background: var(--color-primary); color: #fff; }
+.brk-legend { flex-basis: 100%; font-size: 11px; }
+
+/* No published run for the broker on show */
+.brk-norun { padding: 16px 18px; font-size: 13px; color: var(--color-text-muted); }
+.brk-norun b { color: var(--color-text); font-size: 14px; }
+.brk-norun p { margin: 8px 0 0; }
+
+/* Panels two per row on wide screens, like the workbook's Summary sheet */
+.brk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+@media (max-width: 1280px) { .brk-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.brk-panel .xl-period-table { flex: 0 0 57%; width: 57%; }
+.brk-panel .xl-main-row > .wire-table-scroll { padding-right: 0; border-right: 0; }
+.brk-panel .xl-col-period { width: 43%; }
+.brk-panel .xl-col-val    { width: 23%; }
+.brk-panel .xl-col-chg1,
+.brk-panel .xl-col-chg2   { width: 17%; }
+.brk-panel .xl-period-table tr:not(.xl-col-hdr) td:first-child { white-space: normal; line-height: 1.25; }
+.brk-panel .xl-period-table tr.xl-col-hdr td { padding-left: 3px; padding-right: 3px; }
+.brk-panel .weekday-wire-table { font-size: 12px; }
+.brk-panel .weekday-wire-table col:nth-child(1) { width: 38%; }
+.brk-panel .weekday-wire-table col:nth-child(2) { width: 28%; }
+.brk-panel .weekday-wire-table col:nth-child(3),
+.brk-panel .weekday-wire-table col:nth-child(4) { width: 17%; }
+.brk-panel .weekday-wire-table th { padding: 3px 2px; }
+.brk-panel .weekday-wire-table td.wire-value { white-space: nowrap; padding-right: 4px; }
+.brk-panel .weekday-wire-table td.wire-delta { padding: 3px 2px; font-size: 11.5px; }
+@media (max-width: 900px) {
+  .brk-panel .xl-period-table { flex: none; width: 100%; }
+}
+/* Phones: narrower period column, so both comparison columns fit */
+@media (max-width: 480px) {
+  .brk-panel .xl-period-table { min-width: 0; }
+  .brk-panel .xl-col-period { width: 34%; }
+  .brk-panel .xl-col-val    { width: 24%; }
+  .brk-panel .xl-col-chg1,
+  .brk-panel .xl-col-chg2   { width: 21%; }
+  .brk-panel .xl-period-table tr:not(.xl-col-hdr) td:first-child { font-size: 12px; }
+}
+
+/* Actual / Estimate tags beside each value */
+.brk-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  vertical-align: 1px;
+  cursor: help;
+}
+.brk-tag--act { color: #08711e; }
+.brk-tag--est { color: #b45309; }
+.xl-period-table td:has(> .brk-tag) { overflow: visible; }
+
+/* Note markers (why a value is missing) and the panel's note list */
+.brk-note-ref { font-size: 9px; font-weight: 700; color: var(--color-primary); vertical-align: super; margin-left: 2px; cursor: help; }
+.brk-notes {
+  margin: 0;
+  padding: 6px 12px 8px 28px;
+  border-top: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.brk-notes li { margin: 2px 0; }
+.brk-empty { padding: 10px 12px; font-size: 12px; color: var(--color-text-muted); }
+
+/* Daily ADR and calibration */
+.brk-chart { position: relative; height: 360px; }
+.brk-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 12px; color: var(--color-text-muted); }
+.brk-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.brk-table th, .brk-table td { padding: 4px 8px; border-bottom: 1px solid #eef0f3; text-align: right; white-space: nowrap; }
+.brk-table th { background: #050505; color: #fff; font-weight: 500; border: 1px solid #e31b23; text-align: center; }
+.brk-table td:first-child, .brk-table th:first-child { text-align: left; }
+.brk-table-scroll { overflow-x: auto; }
+.brk-calib-seg { margin-bottom: var(--space-4); }
+
+/* What a broker's figures measure, where it differs from the others (BRK_BROKER_BASIS) */
+.brk-basis { flex-basis: 100%; max-width: none; margin: 0; padding: 6px 10px; border-left: 3px solid #b45309; background: #fdf6ec; color: var(--color-text); font-size: 12px; }
+.brk-basis--panel { margin: 6px 8px 0; font-size: 11.5px; }
