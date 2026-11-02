@@ -24,7 +24,7 @@ const BRK_PANEL_TITLES = { 'Consolidated': 'Consolidated ADR', 'MTF': 'MTF (gros
 // brokerage: a note on every tab, panel titles that say so, and per-panel notes
 const BRK_BROKER_BASIS = {
   MOSL: {
-    note: 'Net brokerage: Motilal Oswal\'s revenue base is retail + PWM net brokerage, excluding institutional broking. Angel One\'s and Groww\'s figures are gross, so compare them with care.',
+    note: 'Net brokerage: Motilal Oswal\'s retail + PWM net brokerage on cash, F&O and commodities, excluding institutional broking and currency (about 0.3 % of net brokerage). Angel One\'s and Groww\'s figures are gross, so compare them with care.',
     titles: { 'Broking': 'Broking · net brokerage (retail + PWM)', 'Consolidated': 'Consolidated ADR · net brokerage + MTF NII',
       'MTF': 'MTF · net interest income' },
     panels: { 'MTF': 'Assumption: MTF net interest income uses a typed yield of 12.94 %. Motilal Oswal does not publish its MTF yield.' },
