@@ -13,6 +13,8 @@ const BRK_PRICE_DMAS = [20, 30, 45, 60];
 const BRK_PRICE_PERIODS = [['3m', '3 M', 3], ['6m', '6 M', 6], ['1y', '1 Y', 12], ['2y', '2 Y', 24], ['3y', '3 Y', 36], ['5y', '5 Y', 60]];
 // A period counts as covered when the first paired day is at most this many days after its start
 const BRK_PRICE_SLACK_DAYS = 10;
+// A period whose paired data start later still shows when they cover this share of it, labelled "from <date>"
+const BRK_PRICE_MIN_COVER = 0.85;
 
 // period: until one is picked, 1 Y or the longest period the data covers
 BRK.priceView = { basis: 'cons', dma: 45, custom: false, period: '1y', picked: false };
@@ -67,10 +69,16 @@ function brkPriceModel(adr, prices, dma, months) {
   const start = brkMonthsBack(px[px.length - 1].date, months);
   const model = computeShareModel({ series: px, regression_start: start, revenue_daily: adr.rows }, dma, 0);
   const first = model && model.series.length ? model.series[0].date : null;
+  if (!model || !first) return { status: 'short', from: first };
   const slack = new Date(start + 'T00:00:00Z');
   slack.setUTCDate(slack.getUTCDate() + BRK_PRICE_SLACK_DAYS);
-  if (!model || !first || first > slack.toISOString().slice(0, 10)) return { status: 'short', from: first };
-  return { status: 'ok', model, start, view: model.series.filter(r => r.date >= start) };
+  if (first <= slack.toISOString().slice(0, 10)) return { status: 'ok', model, start, view: model.series.filter(r => r.date >= start) };
+  // Paired data start after the window does (the ADR history is shorter than the period): show the period from the
+  // first paired day when that still covers most of the window, and say so; otherwise it is not covered.
+  const end = px[px.length - 1].date, span = (a, b) => (new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5;
+  const cover = span(first, end) / span(start, end);
+  if (cover < BRK_PRICE_MIN_COVER) return { status: 'short', from: first, cover };
+  return { status: 'ok', model, start: first, view: model.series, partial: { from: first, cover, months: span(first, end) / 30.44 } };
 }
 
 async function buildBrokersPrice() {
@@ -102,7 +110,8 @@ async function buildBrokersPrice() {
     st.period = covered.length ? covered[covered.length - 1][0] : '1y';
   }
   const res = brkPriceModel(adr, prices, dma, BRK_PRICE_PERIODS.find(p => p[0] === st.period)[2]);
-  const periodLabel = BRK_PRICE_PERIODS.find(p => p[0] === st.period)[1];
+  const periodName = BRK_PRICE_PERIODS.find(p => p[0] === st.period)[1];
+  const periodLabel = res.partial ? `${periodName} (from ${escHtml(fmtLongDate(res.partial.from))})` : periodName;
   const id = s => `brk-${view}-price-${s}`;
 
   const controls = `<div class="brk-price-controls">
@@ -118,7 +127,7 @@ async function buildBrokersPrice() {
     const r = brkPriceModel(adr, prices, dma, months);
     if (r.status !== 'ok') return `<tr><td class="rx-l">${label}</td><td colspan="6" class="rx-l rx-foot">insufficient history${r.from ? ` (paired data from ${escHtml(fmtLongDate(r.from))})` : ''}</td></tr>`;
     const m = r.model, t = m.meth.t_stat_newey_west;
-    return `<tr${k === st.period ? ' class="rx-out"' : ''}><td class="rx-l">${label}</td><td>${fmtNum(m.n, 0)}</td><td>${fmtNum(m.reg.slope, 2)}</td><td>${fmtNum(m.reg.intercept, 1)}</td>
+    return `<tr${k === st.period ? ' class="rx-out"' : ''}><td class="rx-l">${label}${r.partial ? ` <span class="rx-foot">from ${escHtml(fmtLongDate(r.partial.from))}</span>` : ''}</td><td>${fmtNum(m.n, 0)}</td><td>${fmtNum(m.reg.slope, 2)}</td><td>${fmtNum(m.reg.intercept, 1)}</td>
       <td>${fmtNum(m.reg.r_squared, 2)}</td><td>${t == null ? '—' : t.toFixed(2)}</td><td class="rx-l">${m.meth.fair_value_supported ? rxChip('Supported', 'ok') : rxChip('Not supported', 'warn')}</td></tr>`;
   }).join('');
   const horizonPanel = rxPanel({ title: 'Relationship by period', meta: `price = intercept + slope × ADR-DMA${dma} · ${escHtml(basisLabel)}`,
@@ -127,7 +136,7 @@ async function buildBrokersPrice() {
 
   if (res.status !== 'ok') {
     el.innerHTML = `<div class="brk-wrap">${brkRunBar()}<div class="rx">${controls}
-      ${rxAlert(`<strong>Insufficient history for ${periodLabel}.</strong> ${res.from ? `Prices paired with the ${dma}-day ADR average start on ${escHtml(fmtLongDate(res.from))}` : 'There are no prices paired with this ADR'}, so this period is not covered. Pick a shorter period.`)}
+      ${rxAlert(`<strong>Insufficient history for ${periodName}.</strong> ${res.from ? `Prices paired with the ${dma}-day ADR average start on ${escHtml(fmtLongDate(res.from))}` : 'There are no prices paired with this ADR'}, so this period is not covered. Pick a shorter period.`)}
       ${horizonPanel}</div></div>`;
     brkPriceListeners(el.firstElementChild);
     return;
@@ -139,7 +148,8 @@ async function buildBrokersPrice() {
   const ratioNow = last.price / last.rev_ma;
   const z = rs && rs.sd ? (ratioNow - rs.mean) / rs.sd : null;
   const fv = d.meth.fair_value_supported ? d.reg.slope * last.rev_ma + d.reg.intercept : null;
-  el.innerHTML = `<div class="brk-wrap">${brkRunBar()}<div class="rx">${controls}
+  const partialNote = res.partial ? rxAlert(`<strong>${periodName} is partly covered.</strong> ${escHtml(basisLabel)} ADR starts on ${escHtml(fmtLongDate(adr.start))}, so prices paired with its ${dma}-day average start on ${escHtml(fmtLongDate(res.partial.from))}: ${fmtNum(res.partial.months, 1)} of ${BRK_PRICE_PERIODS.find(p => p[0] === st.period)[2]} months. Every figure below is over that span.`, 'info') : '';
+  el.innerHTML = `<div class="brk-wrap">${brkRunBar()}<div class="rx">${controls}${partialNote}
     <section class="rx-kpis" aria-label="Price vs ADR">
       ${rxKpi('Close', rxRupee(last.price, 2), escHtml(fmtLongDate(last.date)))}
       ${rxKpi(`ADR-DMA${dma}`, rxCr(last.rev_ma, 2), `${escHtml(basisLabel)} · to the session before`)}
