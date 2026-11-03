@@ -56,5 +56,40 @@ class AdrSeries(unittest.TestCase):
         self.assertEqual([r["revenue_cr"] for r in s["rows"]], [3.0, 3.0, 3.0])
 
 
+def period(first_pair, months):
+    """brkPriceModel with a stand-in regression whose paired series starts on `first_pair`
+    (prices end 2026-10-20, so a 24-month window starts 2024-10-20)."""
+    days = [f"{y}-{m:02d}-{d:02d}" for y in (2024, 2025, 2026) for m in range(1, 13) for d in (5, 20)]
+    days = [d for d in days if d <= "2026-10-20"] + ["2026-10-20"]
+    data = {"adr": {"rows": [{"date": d, "revenue_cr": 1.0} for d in days[:-1]]},
+            "prices": [{"date": d, "price": 10.0} for d in days], "first": first_pair}
+    stub = ("globalThis.computeShareModel = (d) => ({ series: d.series.filter(p => p.date >= DATA.first)"
+            ".map(p => ({ date: p.date })) })")
+    return js_eval(["BRK_PRICE_SLACK_DAYS", "BRK_PRICE_MIN_COVER", "brkMonthsBack", "brkPriceModel"],
+                   f"({stub}, brkPriceModel(DATA.adr, DATA.prices, 45, {months}))", data)
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class PeriodCoverage(unittest.TestCase):
+    def test_a_period_the_paired_data_cover_is_ok(self):
+        r = period("2024-10-20", 24)
+        self.assertEqual(r["status"], "ok")
+        self.assertNotIn("partial", r)
+        self.assertEqual(r["start"], "2024-10-20")
+
+    def test_most_of_a_period_shows_from_the_first_paired_day(self):
+        # ADR from Oct 2024 with a 45-day DMA: pairs from early December, about 22.5 of 24 months
+        r = period("2024-12-05", 24)
+        self.assertEqual(r["status"], "ok")
+        self.assertEqual(r["start"], "2024-12-05")
+        self.assertEqual(r["partial"]["from"], "2024-12-05")
+        self.assertGreater(r["partial"]["cover"], 0.85)
+
+    def test_too_little_of_a_period_stays_insufficient(self):
+        r = period("2024-12-05", 36)          # 3 Y: about 22.5 of 36 months
+        self.assertEqual(r["status"], "short")
+        self.assertEqual(r["from"], "2024-12-05")
+
+
 if __name__ == "__main__":
     unittest.main()
