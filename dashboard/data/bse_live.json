@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-04T03:25:23Z",
+  "updated_at": "2026-11-04T03:30:28Z",
   "sensex": {
     "last": 76917.85,
     "change": 1225.07,
@@ -31,7 +31,8 @@
     "total_revenue": 9.2505,
     "has_data": true,
     "options_pending": false,
-    "source": "live"
+    "source": "live",
+    "stale_since": "2026-11-04T03:25:23Z"
   },
   "stock_price": {
     "last_price": 3665.7,
