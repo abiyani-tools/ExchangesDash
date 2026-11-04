@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-04T10:25:33Z",
+  "updated_at": "2026-11-04T10:30:28Z",
   "market_status": {
     "marketState": [
       {
@@ -54,14 +54,14 @@
         "marketStatus": "Open",
         "tradeDate": "04-Nov-2026",
         "index": "",
-        "last": "94.7775",
+        "last": "94.7800",
         "variation": "",
         "percentChange": "",
         "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "04-Nov-2026 15:55",
-        "tradeDateFormatted": "04-Nov-2026 15:55",
+        "updated_time": "04-Nov-2026 16:00",
+        "tradeDateFormatted": "04-Nov-2026 16:00",
         "slickclass": "slick-item"
       }
     ],
@@ -88,7 +88,7 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 72113,
+      "CONTRACTSTRADED": 1,
       "DAYCHANGE": 210.5,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
@@ -116,14 +116,14 @@
     "index_options_premium": 52752.93,
     "stock_options_premium": 9489.9,
     "options_premium": 62242.83,
-    "cash_traded_value": 130432.63,
+    "cash_traded_value": 130455.01,
     "take_rate_futures": 3.66e-05,
     "take_rate_options": 0.0007106,
     "take_rate_cash": 6.14e-05,
     "futures_revenue": 3.3836,
     "options_revenue": 44.2298,
-    "cash_revenue": 8.0086,
-    "total_revenue": 55.6219,
+    "cash_revenue": 8.0099,
+    "total_revenue": 55.6232,
     "has_data": true,
     "source": "live"
   },
@@ -176,14 +176,14 @@
         "index_options_premium": 52752.93,
         "stock_options_premium": 9489.9,
         "options_premium": 62242.83,
-        "cash_traded_value": 130432.63,
+        "cash_traded_value": 130455.01,
         "take_rate_futures": 3.66e-05,
         "take_rate_options": 0.0007106,
         "take_rate_cash": 6.14e-05,
         "futures_revenue": 3.3836,
         "options_revenue": 44.2298,
-        "cash_revenue": 8.0086,
-        "total_revenue": 55.6219,
+        "cash_revenue": 8.0099,
+        "total_revenue": 55.6232,
         "has_data": true,
         "source": "live"
       }
