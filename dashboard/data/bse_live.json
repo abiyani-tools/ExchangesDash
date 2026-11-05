@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05T10:05:27Z",
+  "updated_at": "2026-11-05T10:10:28Z",
   "sensex": {
     "last": 79310.01,
     "change": 2008.61,
@@ -8,7 +8,7 @@
     "open": 78910.94,
     "high": 79470.03,
     "low": 78520.56,
-    "datetime": "05 Nov 26 | 15:34",
+    "datetime": "05 Nov 26 | 15:39",
     "status": "Open"
   },
   "market_stat": {
@@ -31,7 +31,8 @@
     "total_revenue": 53.6767,
     "has_data": true,
     "options_pending": false,
-    "source": "live"
+    "source": "live",
+    "stale_since": "2026-11-05T10:05:27Z"
   },
   "stock_price": {
     "last_price": 3790.0,
