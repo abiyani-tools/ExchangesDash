@@ -108,7 +108,7 @@ GitHub's schedule, which is often hours late) copies the `sb_*` tables that the 
 can read into the ExchangesDash Supabase project (NSE-BSE), with the same names and columns.
 `brokers_mirror_schema.sql` defines the copies. Their schema endpoint refuses the publishable key,
 so `--emit-ddl` cannot generate that file; it comes from the brokers team's catalog (#36, 3 Nov
-2026: 8 tables). The copies keep their columns, types and primary keys, but not their foreign keys
+2026: 8 tables; `sb_pat_lines`, the PAT model's output, added on 5 Nov 2026). The copies keep their columns, types and primary keys, but not their foreign keys
 or CHECK constraints, because the mirror loads tables in name order.
 
 - A column change on the brokers side makes that table's copy stop with an error until the copy's

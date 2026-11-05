@@ -8,8 +8,8 @@
 // The broker views: pill id, sb_brokers.broker_id, label, and whether it has a PAT
 // Predictor tab
 const BRK_VIEWS = [
-  { view: 'angel', broker: 'ANGELONE', label: 'Angel One', pat: false },
-  { view: 'groww', broker: 'GROWW', label: 'Groww', pat: false },
+  { view: 'angel', broker: 'ANGELONE', label: 'Angel One', pat: true },
+  { view: 'groww', broker: 'GROWW', label: 'Groww', pat: true },
   { view: 'mosl', broker: 'MOSL', label: 'Motilal Oswal', pat: false },
 ];
 // The broker on show: set by its view's load()
@@ -103,6 +103,7 @@ function brkShow(tab) {
   if (tab === 'daily') buildBrokersDaily();
   else if (tab === 'calib') buildBrokersCalibration();
   else if (tab === 'price') buildBrokersPrice();   // js/31-brokers-price.js
+  else if (tab === 'pat') buildBrokersPat();       // js/33-brokers-pat.js
 }
 
 // A view's meta(): header quarter and "Last Updated"
@@ -450,7 +451,7 @@ BRK_VIEWS.forEach(def => registerBrokerView({
     { id: 'daily', label: 'Daily ADR', icon: 'prediction' },
     { id: 'calib', label: 'Calibration', icon: 'advanced' },
     { id: 'price', label: 'Price vs ADR', icon: 'share' },
-    ...(def.pat ? [{ id: 'pat', label: 'PAT Predictor', icon: 'share' }] : []),
+    ...(def.pat ? [{ id: 'pat', label: 'PAT Predictor', icon: 'prediction' }] : []),
   ],
   titles: { summary: `${def.label}: ADR Summary`, daily: `${def.label}: Daily ADR`, calib: `${def.label}: Calibration`, price: `${def.label}: Share price vs ADR`, pat: `${def.label}: PAT Predictor` },
   load: owns => brkLoad(def, BRK.mode, owns),
