@@ -120,3 +120,14 @@
 .brk-price-controls .rx-lbl { margin-bottom: 4px; }
 .brk-dma-in { margin-left: 6px; width: 64px; vertical-align: middle; }
 .brk-price-foot { margin: 0 0 var(--space-3); }
+
+/* F&O vs Exchanges (js/32-brokers-fo-drivers.js) */
+.brk-fo-identity { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 4px 0 2px; }
+.brk-fo-identity > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-left: 3px solid var(--color-border, #CFCFC8); }
+.brk-fo-identity > div:last-child { border-left-color: #2B5CC8; }
+.brk-fo-identity b { font-size: 13px; }
+.brk-fo-read p { margin: 0 0 8px; }
+.brk-fo-ab-lbl { font-size: 12px; color: var(--color-text-muted, #62656D); margin: 10px 0 2px; }
+.brk-fo-ab-lbl b { display: inline-block; min-width: 18px; padding: 0 5px; margin-right: 6px; color: #FFFFFF; background: #16181D; text-align: center; }
+.rx-table caption { caption-side: top; padding: 6px 0 2px; }
+@media (max-width: 760px) { .brk-fo-identity { grid-template-columns: 1fr; } }
