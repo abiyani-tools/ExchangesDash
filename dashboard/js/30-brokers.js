@@ -82,7 +82,33 @@ async function brkLoad(def, mode, owns = () => true) {
   if (!owns()) return;
   BRK_BROKER = { id: def.broker, name: b.label, view: def.view };
   BRK = { ...BRK, brokers, mode, summary, daily: null, calib: null, prices: null, sel: summary.run ? {
-    FY: summary.periods.FY[0], Q: summary.periods.Q[0], M: summary.periods.M[0] } : {} };
+    FY: brkDefaultKey(summary, 'FY'), Q: brkDefaultKey(summary, 'Q'), M: brkDefaultKey(summary, 'M') } : {} };
+}
+
+// A period still open at the run's as-of date with fewer trading days than this is not
+// shown first: the Summary opens on the period before it (the selector still offers it)
+const BRK_MIN_OPEN_DAYS = 5;
+
+// The period a Summary table opens on: the latest, unless that one is still open with
+// fewer than BRK_MIN_OPEN_DAYS trading days (e.g. a month one day old)
+function brkDefaultKey(summary, type) {
+  const keys = summary.periods[type] || [], open = summary.open?.[type];
+  if (open && keys[0] === open.key && open.days < BRK_MIN_OPEN_DAYS && keys.length > 1) return keys[1];
+  return keys[0];
+}
+
+// " (1 day)" after a period still open at the as-of date; '' otherwise
+function brkOpenSuffix(type, key) {
+  const open = BRK.summary.open?.[type];
+  return open && open.key === key ? ` (${open.days} day${open.days === 1 ? '' : 's'})` : '';
+}
+
+// The note on a period still open at the as-of date: how many trading days its figures cover
+function brkOpenNote(type, key) {
+  const open = BRK.summary.open?.[type];
+  if (!open || open.key !== key || !open.through) return null;
+  return `${key} is still open: this run is as of ${fmtLongDate(open.through)}, ${open.days} trading day${open.days === 1 ? '' : 's'} `
+    + 'into it. Its figures are averages over the days published so far; the periods it is compared with are complete.';
 }
 
 // The tab of the broker view on show ('summary', 'daily', …), from the sidebar
@@ -219,7 +245,14 @@ function brkPeriodSection(panel, type, notes) {
     const oa = brkPeriodOrder(a.label), ob = brkPeriodOrder(b.label);
     return (ob ?? -1) - (oa ?? -1);
   });
-  const opts = brkPanelKeys(panel, type).map(k => `<option value="${escHtml(k)}"${k === key ? ' selected' : ''}>${escHtml(k)}</option>`).join('');
+  const openNote = brkOpenNote(type, key), cur = rows.find(r => r.label === key);
+  if (openNote && cur) {
+    let n = notes.indexOf(openNote);
+    if (n < 0) n = notes.push(openNote) - 1;
+    if (!cur.notes.includes(n)) cur.notes.push(n);
+  }
+  // The day count goes on an open period in the list only: once selected, its note says it (the select is too narrow)
+  const opts = brkPanelKeys(panel, type).map(k => `<option value="${escHtml(k)}"${k === key ? ' selected' : ''}>${escHtml(k === key ? k : k + brkOpenSuffix(type, k))}</option>`).join('');
   const body = rows.map(r => {
     const cur = r.label === key;
     const label = cur ? `<select class="xl-row-sel brk-sel" data-type="${type}" aria-label="${spec.table}">${opts}</select>`

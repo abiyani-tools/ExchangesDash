@@ -27,7 +27,9 @@
  *               the as-of date ({ MTF: { through: '2026-10-19', segment: 'mtf_gross',
  *               days_behind: 9 }, … }). A panel is as current as its earliest-ending
  *               segment, so Consolidated ends with MTF.
- * daily     → sb_daily_revenue for the run (trade_date, segment, orders, ₹ Cr, regime)
+ *               And `open`: the FY, quarter and month holding the as-of date, with the
+ *               F&O trading days published in each so far ({ key, days, through }).
+ * daily       → sb_daily_revenue for the run (trade_date, segment, orders, ₹ Cr, regime)
  * calibration → sb_calibration for the run
  * calendar    → equity trading days per FY counted from sb_calendar (and the last date it covers)
  * prices      → the broker's daily share closes (sb_share_prices: close, split- and
@@ -185,6 +187,18 @@ function panelsThrough(last, recent) {
   return out;
 }
 
+// The FY, quarter and month that hold the run's as-of date are still open: their figures
+// cover only the trading days to that date. { FY|Q|M: { key, days, through } }, where days
+// counts the equity trading days published for F&O (every broker has it) in that period.
+function openPeriods(asOf, foDates) {
+  const now = periodsOf(asOf), out = {};
+  ['FY', 'Q', 'M'].forEach(t => {
+    const d = foDates.filter(x => x <= asOf && periodsOf(x)[t] === now[t]).sort();
+    out[t] = { key: now[t], days: d.length, through: d.length ? d[d.length - 1] : null };
+  });
+  return out;
+}
+
 // Each segment's last day up to the as-of date: from the recent window, or, for a
 // segment with no day in it, its own latest row (none: the broker doesn't publish it)
 async function segmentLastDays(run, recent) {
@@ -207,10 +221,12 @@ async function summary(run) {
   const r = run.run_id;
   const asOf = run.as_of_date;
   const since = new Date(Date.parse(asOf + 'T00:00:00Z') - 120 * 86400000).toISOString().slice(0, 10);
-  const [cells, projected, recent] = await Promise.all([
+  const fyStart = `${periodsOf(asOf).fy - 1}-04-01`;
+  const [cells, projected, recent, foDays] = await Promise.all([
     sb(`sb_summary_cells?select=panel,period_type,period_key,table_name,row_label,value,comparison,comp_value,note&run_id=eq.${r}`, { all: true }),
     sb(`sb_daily_revenue?select=trade_date,segment&run_id=eq.${r}&regime=neq.actual`, { all: true }),
     sb(`sb_daily_revenue?select=trade_date,segment&run_id=eq.${r}&trade_date=gte.${since}&trade_date=lte.${asOf}`, { all: true }),
+    sb(`sb_daily_revenue?select=trade_date&run_id=eq.${r}&segment=eq.fo&trade_date=gte.${fyStart}&trade_date=lte.${asOf}&order=trade_date`, { all: true }),
   ]);
   const regime = regimeFinder(recent, projected);
   const num = v => (v == null ? null : Number(v));
@@ -224,7 +240,8 @@ async function summary(run) {
   const sorted = s => [...s].sort((a, b) => periodKey(b) - periodKey(a));
   const panels = PANEL_ORDER.filter(p => out.some(c => c.panel === p));
   const through = panelsThrough(await segmentLastDays(run, recent), recent);
-  return { run, panels, periods: { FY: sorted(keys.FY), Q: sorted(keys.Q), M: sorted(keys.M) }, cells: out, through };
+  return { run, panels, periods: { FY: sorted(keys.FY), Q: sorted(keys.Q), M: sorted(keys.M) },
+    open: openPeriods(asOf, foDays.map(x => x.trade_date)), cells: out, through };
 }
 
 // PAT lines (sb_pat_lines) of the latest successful run of the mode that has them:
@@ -333,3 +350,4 @@ module.exports = async function handler(req, res) {
 
 module.exports.panelsThrough = panelsThrough;   // tests/test_brokers_api.py
 module.exports.patLines = patLines;           // tests/test_brokers_api.py
+module.exports.openPeriods = openPeriods;       // tests/test_brokers_open_periods.py
