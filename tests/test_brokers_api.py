@@ -95,5 +95,48 @@ class Page(unittest.TestCase):
         self.assertEqual(out, {"item": "", "note": ""})
 
 
+def pat(tables, runs, run_id=None):
+    """patLines('GROWW', 'live', run_id) against a stubbed Supabase: `runs` answers sb_runs,
+    `tables` maps a run_id to its sb_pat_lines rows (None: the table does not exist)."""
+    script = f"""
+process.env.BROKERS_SUPABASE_KEY = 'test';
+const TABLES = {json.dumps(tables)}, RUNS = {json.dumps(runs)};
+globalThis.fetch = async url => {{
+  const u = new URL(url), path = u.pathname.split('/').pop(), run = (u.searchParams.get('run_id') || '').replace('eq.', '');
+  if (path === 'sb_runs') return {{ ok: true, json: async () => run ? RUNS.filter(r => r.run_id === run) : RUNS }};
+  if (TABLES === null) return {{ ok: false, status: 404 }};
+  return {{ ok: true, json: async () => TABLES[run] || [] }};
+}};
+const {{ patLines }} = require({json.dumps(str(API))});
+patLines('GROWW', 'live', {json.dumps(run_id)}).then(o => process.stdout.write(JSON.stringify(o)));"""
+    out = subprocess.run([NODE, "-"], input=script, capture_output=True, text=True)
+    if out.returncode:
+        raise RuntimeError(out.stderr)
+    return json.loads(out.stdout)
+
+
+RUNS = [{"run_id": "new", "as_of_date": "2026-11-04"}, {"run_id": "old", "as_of_date": "2026-11-03"}]
+LINE = {"period_key": "FY 2028", "line": "pat", "scenario": "", "label": "PAT", "value": "3671.53",
+        "unit": "Rs Cr", "regime": "projected", "rule": None, "sort_order": 25}
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class PatView(unittest.TestCase):
+    def test_latest_run_with_lines(self):
+        out = pat({"new": [LINE], "old": [LINE]}, RUNS)
+        self.assertEqual(out["run"]["run_id"], "new")
+        self.assertEqual(out["rows"][0]["value"], 3671.53)          # numeric, not the string PostgREST sends
+
+    def test_falls_back_while_the_pat_step_has_not_published(self):
+        out = pat({"old": [LINE]}, RUNS)
+        self.assertEqual(out["run"]["run_id"], "old")
+
+    def test_no_lines_or_no_table(self):
+        self.assertIsNone(pat({}, RUNS)["run"])
+        out = pat(None, RUNS)
+        self.assertIsNone(out["run"])
+        self.assertIn("sb_pat_lines not created", out["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

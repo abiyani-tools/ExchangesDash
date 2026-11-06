@@ -137,3 +137,14 @@
 .brk-fo-ab-lbl b { display: inline-block; min-width: 18px; padding: 0 5px; margin-right: 6px; color: #FFFFFF; background: #16181D; text-align: center; }
 .rx-table caption { caption-side: top; padding: 6px 0 2px; }
 @media (max-width: 760px) { .brk-fo-identity { grid-template-columns: 1fr; } }
+
+/* PAT Predictor (js/33-brokers-pat.js) */
+.brk-pat-pl td.brk-pat-fy, .brk-pat-pl th.brk-pat-fy,
+.brk-pat-val td.brk-pat-fy, .brk-pat-val th.brk-pat-fy { border-left: 1px solid var(--rx-rule, #e5e5e0); }
+.brk-pat-pl td.brk-pat-proj { color: #6b4a12; }
+.brk-pat-pl tr.rx-sub td.brk-pat-proj { color: #4a3208; }
+.brk-pat-pl tr.brk-pat-sec td { padding-top: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--color-text-muted); background: transparent; }
+.brk-pat-pl tr.brk-pat-memo td { font-style: italic; color: var(--color-text-muted); }
+.brk-pat-pl th .brk-tag { margin-left: 3px; }
+.brk-pat-rules td.rx-wrap { white-space: normal; min-width: 220px; font-size: 11.5px; line-height: 1.35; }
+.rx-kpi-v small { font-size: 11px; font-weight: 500; color: var(--color-text-muted); }
