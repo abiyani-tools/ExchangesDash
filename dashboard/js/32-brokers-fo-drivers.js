@@ -115,8 +115,14 @@ async function buildBrokersFo() {
   const rollB = brkFoRolling(chosen, st.win, r => r.C * 1e6, r => r.P);
   const first = chosen.findIndex(r => r.date >= start);
   const rows = first < 0 ? [] : chosen.slice(first), rA = rollA.slice(first), rB = rollB.slice(first);
-  if (rows.length < 5) {
-    el.innerHTML = `<div class="brk-wrap">${brkRunBar()}<div class="brk-empty">Too few ${escHtml(BRK_FO_DAYS.find(d => d[0] === st.days)[1].toLowerCase())} in this period. Pick a longer period or all days.</div></div>`;
+  const controls = `<div class="brk-price-controls">
+    <div><div class="rx-lbl">Period</div>${rxSeg('brkFoPeriod', BRK_FO_PERIODS.map(p => [p[0], p[1]]), st.period, 'Period')}</div>
+    <div><div class="rx-lbl">Rolling window, trading days</div>${rxSeg('brkFoWin', BRK_FO_WINDOWS.map(n => [String(n), String(n)]), String(st.win), 'Rolling window')}</div>
+    <div><div class="rx-lbl">Days</div>${rxSeg('brkFoDays', BRK_FO_DAYS, st.days, 'Days')}</div>
+    <div><div class="rx-lbl">Single days</div>${rxSeg('brkFoDots', [['off', 'Hide'], ['on', 'Show']], st.dots ? 'on' : 'off', 'Single days')}</div>
+  </div>`;
+  if (rows.length < 5) {   // keep the controls, so the viewer can pick a longer period or all days
+    el.innerHTML = `<div class="brk-wrap">${brkRunBar()}<div class="rx">${controls}<div class="brk-empty">Too few ${escHtml(BRK_FO_DAYS.find(d => d[0] === st.days)[1].toLowerCase())} in this period. Pick a longer period or all days.</div></div></div>`;
     brkFoListeners(el.firstElementChild);
     return;
   }
@@ -136,12 +142,6 @@ async function buildBrokersFo() {
     <div><span class="rx-lbl">Divide one by the other</span><b>${name} ÷ Exchange revenue = k × (contracts ÷ exchange revenue)</b><span class="rx-foot">Within a period k is constant, so the ratio moves only with contracts per ₹ of exchange revenue: the inverse of the premium per contract</span></div>
   </div>`;
 
-  const controls = `<div class="brk-price-controls">
-    <div><div class="rx-lbl">Period</div>${rxSeg('brkFoPeriod', BRK_FO_PERIODS.map(p => [p[0], p[1]]), st.period, 'Period')}</div>
-    <div><div class="rx-lbl">Rolling window, trading days</div>${rxSeg('brkFoWin', BRK_FO_WINDOWS.map(n => [String(n), String(n)]), String(st.win), 'Rolling window')}</div>
-    <div><div class="rx-lbl">Days</div>${rxSeg('brkFoDays', BRK_FO_DAYS, st.days, 'Days')}</div>
-    <div><div class="rx-lbl">Single days</div>${rxSeg('brkFoDots', [['off', 'Hide'], ['on', 'Show']], st.dots ? 'on' : 'off', 'Single days')}</div>
-  </div>`;
   const lastA = rA[rA.length - 1], lastB = rB[rB.length - 1];
   const firstIdx = rA.findIndex(v => v != null);
 
