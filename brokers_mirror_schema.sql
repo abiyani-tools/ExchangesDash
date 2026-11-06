@@ -3,6 +3,8 @@
 -- Definitions: the brokers team's catalog, sucaanalytics-max/ExchangesDash#36, 3 Nov 2026. Their schema
 -- endpoint does not serve the publishable key, so --emit-ddl cannot generate this file.
 -- sb_pat_lines (the PAT model's output, 5 Nov 2026) is from their migrations/20261105_sb_pat_lines.sql.
+-- Create it here only after that migration has run on their side: the mirror copies every sb_* table that
+-- exists here, and a table their side does not have yet fails each run (HTTP 404 from their API).
 -- Same names, columns, types, NOT NULL, defaults and primary keys. Their foreign keys and CHECK constraints
 -- are left out: the mirror loads tables in name order, and the source already enforces both.
 -- RLS is on with no policies: only the service role reads or writes these tables.
