@@ -1,15 +1,15 @@
 {
-  "updated_at": "2026-11-06T03:30:30Z",
+  "updated_at": "2026-11-06T03:35:35Z",
   "market_status": {
     "marketState": [
       {
         "market": "Capital Market",
         "marketStatus": "Open",
-        "tradeDate": "06-Nov-2026 09:00",
+        "tradeDate": "06-Nov-2026 09:04",
         "index": "NIFTY 50",
-        "last": 24629.2,
-        "variation": 92.60000000000218,
-        "percentChange": 0.38,
+        "last": 24560.15,
+        "variation": 23.55000000000291,
+        "percentChange": 0.1,
         "marketStatusMessage": "Market in Pre-Open session"
       },
       {
@@ -44,10 +44,10 @@
       },
       {
         "index": "NIFTY50 USD",
-        "last": 9032.4,
-        "change": 32.54999999999927,
-        "percentChange": 0.36,
-        "timestamp": "06-Nov-2026 09:00"
+        "last": 9011.5,
+        "change": 11.649999999999636,
+        "percentChange": 0.12,
+        "timestamp": "06-Nov-2026 09:04"
       },
       {
         "market": "currencyfuture",
@@ -60,8 +60,8 @@
         "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "06-Nov-2026 09:00",
-        "tradeDateFormatted": "06-Nov-2026 09:00",
+        "updated_time": "06-Nov-2026 09:04",
+        "tradeDateFormatted": "06-Nov-2026 09:04",
         "slickclass": "slick-item"
       }
     ],
@@ -88,24 +88,24 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 4533,
-      "DAYCHANGE": -38.5,
+      "CONTRACTSTRADED": 4802,
+      "DAYCHANGE": -17.5,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
-      "LASTPRICE": 24441.5,
+      "LASTPRICE": 24462.5,
       "OPTIONTYPE": "-",
-      "PERCHANGE": -0.16,
+      "PERCHANGE": -0.07,
       "STRIKEPRICE": 0,
       "SYMBOL": "NIFTY",
-      "TIMESTMP": "06-Nov-2026 09:00",
+      "TIMESTMP": "06-Nov-2026 09:04",
       "id": "1/NIFTYFUTIDX23-Nov-2026--"
     },
     "niftyusd": {
       "index": "NIFTY50 USD",
-      "last": 9032.4,
-      "change": 32.54999999999927,
-      "percentChange": 0.36,
-      "timestamp": "06-Nov-2026 09:00"
+      "last": 9011.5,
+      "change": 11.649999999999636,
+      "percentChange": 0.12,
+      "timestamp": "06-Nov-2026 09:04"
     }
   },
   "revenue": {
