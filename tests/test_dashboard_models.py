@@ -119,6 +119,126 @@ class ValuationModel(unittest.TestCase):
         self.assertEqual((js["saved"]["pe1"], js["saved"]["margin"], js["saved"]["disc"]), (47, 52, 18))
 
 
+TRIANGULATION_JS = ["TRIANGULATION_DEFAULTS", "triangulationAdrPath", "triangulationModel"]
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class TriangulatedTarget(unittest.TestCase):
+    """The Excel "BSE" sheet's Summary table (D87:F90), from its own inputs (workbook of 27 Oct 2026)."""
+
+    FIT = {"intercept": 956.0770419049786, "slope": 133.43199031771962}   # D15, E15
+    RATIO = {"mean": 211.41937623512064, "sd": 33.72028359630432}        # 'BSE Reg'!K7, P7
+    Q3_ADR = 22.484593545454544                                          # D28
+
+    def model(self, t_over=None, **kw):
+        args = {"regAdr": 22, "reg": self.FIT, "ratio": self.RATIO, "shares": 40.78841, **kw}
+        expr = """(() => {
+          const path = triangulationAdrPath({ q: 3, fy: 2027 }, DATA.q3, 2);
+          const t = { ...TRIANGULATION_DEFAULTS.bse, oi: 2055.3897222222213, ...DATA.t };   // Q26 unrounded
+          return { path, m: triangulationModel(t, { adrFY: path.adr, ...DATA.args }) };
+        })()"""
+        return js_eval(TRIANGULATION_JS, expr, {"q3": self.Q3_ADR, "t": t_over or {}, "args": args})
+
+    def test_adr_path_to_fy28(self):
+        p = self.model()["path"]
+        self.assertEqual([q["label"] for q in p["path"]], ["Q3 FY27", "Q4 FY27", "Q1 FY28", "Q2 FY28", "Q3 FY28", "Q4 FY28"])
+        self.assertAlmostEqual(p["adr"], 24.104164232823766, places=9)   # D34
+
+    def test_matches_excel_summary(self):
+        js = self.model()["m"]
+        expected = {
+            "reg": (3598.030450195827, 3891.58082889481, 4185.131207593793),    # D87:F87
+            "ratio": (3330.1882389906646, 3962.1267040681896, 4594.065169145715),  # D24:F24
+            "adr": (3234.25211375682, 3638.533627976423, 4042.815142196026),    # D82:F82
+            "avg": (3345.3822311381596, 3818.5802985968076, 4291.778366055455),  # D90:F90
+        }
+        got = {"reg": js["reg"], "ratio": js["ratio"]["now"], "adr": js["adr"]["now"], "avg": js["avg"]}
+        for k, vals in expected.items():
+            for i, x in enumerate(vals):
+                with self.subTest(method=k, scenario=i):
+                    self.assertAlmostEqual(got[k][i], x, places=6)
+        self.assertAlmostEqual(js["adr"]["oi"], 2363.6981805555542, places=6)   # D70
+        self.assertAlmostEqual(js["adr"]["fwd"][1], 4679.881952303275, places=6)   # E75
+
+    def test_withheld_fit_drops_out_of_the_average(self):
+        js = self.model(reg=None)["m"]
+        self.assertIsNone(js["reg"])
+        self.assertEqual(js["used"], ["ratio", "adr"])
+        self.assertAlmostEqual(js["avg"][1], (3962.1267040681896 + 3638.533627976423) / 2, places=6)
+
+    def test_other_income_as_share_of_total(self):
+        js = self.model({"oiMode": "pct", "oi": 30})["m"]
+        self.assertAlmostEqual(js["adr"]["oi"] / js["adr"]["total"], 0.30, places=9)
+
+
+EXCEL_LAYOUT_JS = TRIANGULATION_JS + ["valuationExcelRows", "triangulationSummaryRows", "valuationExcelCells",
+                                      "fmtNum", "rxSignedPct"]
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class ExcelValuationLayout(unittest.TestCase):
+    """The workbook's Bear / Base / Bull block and Summary at the top of the Valuation tab."""
+
+    def test_row_order_and_labels(self):
+        js = js_eval(EXCEL_LAYOUT_JS, "[valuationExcelRows(2028, 'fixed'), valuationExcelRows(2028, 'pct'),"
+                                      " triangulationSummaryRows(DATA[0]), triangulationSummaryRows(DATA[1])]",
+                     [{"w0": 20, "w1": 40, "w2": 40}, {"w0": 30, "w1": 30, "w2": 30}])
+        fixed, pct, weighted, equal = js
+        self.assertEqual([r["label"] for r in fixed],
+                         ["ADR FY 28", "Other Income", "Total Income", "PAT Margin", "EPS", "PE", "Price Target FY 28",
+                          "Upside", "Discount %", "Target Price FY 27", "Discount %", "Target Price Current"])
+        self.assertEqual([r["block"] for r in fixed], [0] * 8 + [1, 1, 2, 2])
+        self.assertEqual([r.get("gut") for r in fixed[:2]], ["qoq", "oiG"])
+        self.assertEqual(pct[1]["gut"], "oi")   # NSE: other income as a % of total income
+        self.assertEqual({r["key"]: r.get("tint") for r in fixed if r.get("tint")}, {"pe": "green", "up": "peach"})
+        self.assertEqual([r["key"] for r in fixed if r.get("bold")], ["adrFY", "fwd", "mid", "now"])
+        self.assertEqual([r.get("input") for r in fixed if r.get("input")],
+                         [["pe0", "pe1", "pe2"], [None, "d1", None], [None, "d2", None]])
+        self.assertEqual([r["label"] for r in weighted], ["Regression", "Ratio Analysis", "ADR", "Weighted average"])
+        self.assertEqual(equal[3]["label"], "Average")
+        self.assertEqual([r.get("w") for r in weighted], ["w0", "w1", "w2", None])
+        self.assertEqual(weighted[0]["gut"], "band")
+
+    def test_figures_match_the_workbook(self):
+        # ADR 25.11 (25.1145 unrounded: exactly 25.11 gives 8,566), other income 2,055.39 × 1.15 = 2,364,
+        # 247 sessions, 51 % margin, 40.79 Cr shares, PE 40 / 45 / 50, discounts 18 % then 9 %
+        adr, cmp = 25.1145, 3500
+        expr = """(() => {
+          const t = { ...TRIANGULATION_DEFAULTS.bse, w0: 1, w1: 1, w2: 1 };
+          // Regression flat at 3,544; ratio bear set so its today value is 3,408
+          const k = 3408 * 1.18 * 1.09 / DATA.adr;
+          const tri = triangulationModel(t, { adrFY: DATA.adr, regAdr: 22, reg: { intercept: 3544, slope: 0 },
+                                              ratio: { mean: k + 10, sd: 10 }, shares: 40.79 });
+          return { cells: valuationExcelCells(tri, t, DATA.cmp), avg: triangulationSummaryRows(t)[3].label };
+        })()"""
+        js = js_eval(EXCEL_LAYOUT_JS, expr, {"adr": adr, "cmp": cmp})
+        c = js["cells"]
+        self.assertEqual(c["adrFY"], ["25.1"] * 3)
+        self.assertEqual(c["oi"], ["2,364"] * 3)
+        self.assertEqual(c["total"], ["8,567"] * 3)
+        self.assertEqual(c["margin"], ["51 %"] * 3)
+        self.assertEqual(c["eps"], ["107"] * 3)
+        self.assertEqual(c["fwd"], ["4,285", "4,820", "5,356"])
+        self.assertEqual(c["up"], ["+22 %", "+38 %", "+53 %"])   # vs CMP 3,500
+        self.assertEqual((c["d1"], c["d2"]), (["18.0 %"] * 3, ["9.0 %"] * 3))
+        self.assertEqual(c["mid"], ["3,631", "4,085", "4,539"])
+        self.assertEqual(c["now"], ["3,331", "3,748", "4,164"])
+        self.assertEqual((c["reg"][0], c["ratio"][0], c["adr"][0]), ("3,544", "3,408", "3,331"))
+        self.assertEqual(c["avg"][0], "3,428")
+        self.assertEqual(js["avg"], "Average")
+
+    def test_missing_methods_show_a_dash(self):
+        expr = """(() => {
+          const t = { ...TRIANGULATION_DEFAULTS.nse };
+          const tri = triangulationModel(t, { adrFY: 400, regAdr: 380, reg: null, ratio: null, shares: null });
+          return valuationExcelCells(tri, t, null);
+        })()"""
+        c = js_eval(EXCEL_LAYOUT_JS, expr)
+        for k in ("reg", "ratio", "adr", "avg", "eps", "fwd", "up", "now"):
+            with self.subTest(row=k):
+                self.assertEqual(c[k], ["—"] * 3)
+
+
 def _day(eod, revs, preds=None):
     cps = {}
     for i, label in enumerate(["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]):
