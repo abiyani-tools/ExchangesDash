@@ -333,6 +333,16 @@
       "futures_revenue": 1.68,
       "predicted_eod": 104.63,
       "pred_method": "historical/pre_expiry/wd0"
+    },
+    {
+      "captured_ist": "2026-11-09T12:00:23",
+      "elapsed_minutes": 165,
+      "total_revenue": 51.4,
+      "cash_revenue": 3.71,
+      "options_revenue": 45.97,
+      "futures_revenue": 1.71,
+      "predicted_eod": 104.64,
+      "pred_method": "historical/pre_expiry/wd0"
     }
   ]
 }
