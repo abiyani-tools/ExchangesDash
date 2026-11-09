@@ -57,7 +57,7 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
 ## Rules for a Brokers PR
 
 - **Files:** new code goes in new files, named so they load after the exchange tabs and before
-  `99-init.js`: `dashboard/js/30-brokers.js`, `31-brokers-price.js`, … `33-brokers-pat.js`. Each needs its
+  `99-init.js`: `dashboard/js/30-brokers.js`, `31-brokers-price.js`, … `33-brokers-pat.js`, `34-brokers-valuation.js`. Each needs its
   `<script src="./js/NN-….js"></script>` tag in `index.html`, in name order. Styles go in a
   separate CSS file linked from `index.html`. No changes to `00-core.js`/`01-data.js` should be
   needed; if one is, explain it in the PR.
