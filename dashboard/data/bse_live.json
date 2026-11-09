@@ -1,24 +1,24 @@
 {
-  "updated_at": "2026-11-09T09:25:25Z",
+  "updated_at": "2026-11-09T09:30:28Z",
   "sensex": {
-    "last": 81036.16,
-    "change": 36.76,
-    "pct_change": 0.05,
+    "last": 81024.19,
+    "change": 24.79,
+    "pct_change": 0.03,
     "prev_close": 80999.4,
     "open": 81327.29,
     "high": 81339.41,
     "low": 80519.31,
-    "datetime": "09 Nov 26 | 14:55",
+    "datetime": "09 Nov 26 | 15:00",
     "status": "Open"
   },
   "market_stat": {
-    "market_cap_cr": 50577904.27,
+    "market_cap_cr": 50549830.06,
     "market_cap_usd_t": 5.39,
-    "turnover_cr": 8322.0,
+    "turnover_cr": 8393.16,
     "listed_companies": 5320,
-    "advances": 1925,
-    "declines": 2447,
-    "unchanged": 255
+    "advances": 1915,
+    "declines": 2459,
+    "unchanged": 254
   },
   "revenue": {
     "trade_date": "09/11/26",
@@ -31,14 +31,15 @@
     "total_revenue": 10.0736,
     "has_data": true,
     "options_pending": false,
-    "source": "live"
+    "source": "live",
+    "stale_since": "2026-11-09T09:25:25Z"
   },
   "stock_price": {
-    "last_price": 3792.0,
+    "last_price": 3791.6,
     "previous_close": 3800.0,
     "open": 3800.0,
     "day_high": 3819.0,
     "day_low": 3756.1,
-    "pct_change": -0.21
+    "pct_change": -0.22
   }
 }
