@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-09T10:45:32Z",
+  "updated_at": "2026-11-09T10:50:29Z",
   "sensex": {
     "last": 81106.65,
     "change": 107.25,
@@ -8,7 +8,7 @@
     "open": 81327.29,
     "high": 81339.41,
     "low": 80519.31,
-    "datetime": "09 Nov 26 | 15:59",
+    "datetime": "09 Nov 26 | 16:00",
     "status": "Closed"
   },
   "market_stat": {
