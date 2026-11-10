@@ -69,7 +69,12 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   the browser code. Set `Cache-Control` (`s-maxage`) **identically** in the function and in
   `dashboard/vercel.json`, and never add cache-busting query parameters to `/api/*` URLs.
 - **Numbers:** the front end shows what the engine published (`sb_summary_cells`,
-  `sb_daily_revenue`, `sb_calibration`). It never re-computes ADR. The summary view also returns each
+  `sb_daily_revenue`, `sb_calibration`). It never re-computes ADR. One exception: when the reader
+  edits the PAT Predictor's inputs (QoQ ADR growth, P/E, discount rates), `patRecompute` in
+  `33-brokers-pat.js` re-runs the engine's PAT recompute (a port of its `src/engine/pat_kit.py`)
+  from the kit rows the engine publishes in `sb_pat_lines`, and the Valuation tab re-weights its ADR
+  method with it; at the defaults it must reproduce the published lines (checked on load), and
+  `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The summary view also returns each
   panel's last data day (`through`); the run bar shows MTF's, and a panel whose data ends before the
   run's as-of date is flagged (the engine has published runs whose MTF stopped days early). Use the Indian FY (Apr–Mar),
   ₹ Cr, and `quarterSortKey` to sort quarters.
