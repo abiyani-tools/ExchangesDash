@@ -62,6 +62,11 @@ const BRK_CALIB_SEGMENTS = { fo: 'F&O', cash: 'Cash', comm: 'Commodities', mtf: 
 // The views show each broker's latest live run (sb_runs mode 'live')
 let BRK = { mode: 'live', brokers: null, summary: null, daily: null, calib: null, sel: {}, range: 120 };
 
+// The PAT Predictor's inputs as the reader edited them, per broker id: { run, inp, edited, targets
+// { bear, base, bull } (FY 2028 target price today), desc }. Set by js/33-brokers-pat.js while an input
+// differs from the published default, read by the Valuation tab's ADR method (js/34). Memory only.
+const BRK_PAT_LIVE = {};
+
 // Never add query parameters beyond these: /api/* is cached at Vercel's edge
 function brkFetch(view, mode, broker = BRK_BROKER.id) {
   return fetchDataFile(`/api/brokers?broker=${broker}&mode=${mode}&view=${view}`).then(r => r.json);

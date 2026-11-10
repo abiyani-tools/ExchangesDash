@@ -8,7 +8,9 @@
 //   ADR         the PAT model's FY 2028 target price today (PAT Predictor tab)
 // and the charts of AB's workbook ADR model sheets. This file lays the published
 // lines out and computes nothing but chart lines from published parameters: the
-// mean ± SD bands, and a window's fit line and implied price (slope × ADR + intercept).
+// mean ± SD bands, and a window's fit line and implied price (slope × ADR + intercept);
+// and, while the reader has edited the PAT Predictor's inputs (BRK_PAT_LIVE), the ADR
+// method at those inputs with the net value and upside re-weighted (brkValReweight).
 
 const BRK_VAL_METHODS = [['regression', 'Regression'], ['ratio', 'Ratio analysis'], ['adr', 'ADR (PAT model)']];
 const BRK_VAL_SCEN = [['bear', 'Bear'], ['base', 'Base'], ['bull', 'Bull']];
@@ -31,6 +33,19 @@ function brkValIndex(rows) {
   const days = Object.values(series).sort((a, b) => (a.date < b.date ? -1 : 1));
   pe.sort((a, b) => (a.date < b.date ? -1 : 1));
   return { sum, inputs, common, weight, days, pe, bands };
+}
+
+// The weighted net value and upside per scenario, with the ADR method's values replaced by
+// `adr` (the PAT Predictor's target price today at the reader's inputs): the engine's
+// triangulation (valuation.py triangulate: Σ weight × value) on the published weights.
+// values: { method: { scenario: price } }; weights: { method: w }. Returns { adr, net, upside }.
+function brkValReweight(values, weights, adr, close) {
+  const out = { adr: { ...adr }, net: {}, upside: {} };
+  BRK_VAL_SCEN.forEach(([s]) => {
+    out.net[s] = BRK_VAL_METHODS.reduce((a, [m]) => a + weights[m] * (m === 'adr' ? adr[s] : values[m][s]), 0);
+    out.upside[s] = out.net[s] / close - 1;
+  });
+  return out;
 }
 
 // The window's first date, from its fit or P/E-band rule ("2026-08-06 to …")
@@ -61,9 +76,16 @@ async function buildBrokersValuation() {
   if (!avail.includes(st.win)) st.win = 'all';
   const win = st.win, fitWin = X.sum[win] ? win : 'all';   // a window only the P/E history covers keeps the All fit
   const S = X.sum[fitWin], I = { ...X.common, ...X.inputs[fitWin] };
-  const v = (line, s) => S[line]?.[s]?.value ?? null;
   const inp = k => I[k]?.value ?? null;
   const close = inp('close'), closeOn = /close on (\d{4}-\d{2}-\d{2})/.exec(I.close?.rule || '');
+  // The ADR method at the PAT Predictor's inputs, while the reader has edited them (BRK_PAT_LIVE, js/33)
+  const patLive = BRK_PAT_LIVE[BRK_BROKER.id];
+  const W = Object.fromEntries(BRK_VAL_METHODS.map(([m]) => [m, X.weight[m]?.value]));
+  const canReweight = patLive?.edited && close && BRK_VAL_METHODS.every(([m]) => W[m] != null && BRK_VAL_SCEN.every(([s]) => S[m]?.[s]?.value != null));
+  const ovr = canReweight ? brkValReweight(Object.fromEntries(BRK_VAL_METHODS.map(([m]) => [m, Object.fromEntries(BRK_VAL_SCEN.map(([s]) => [s, S[m][s].value]))])),
+    W, patLive.targets, close) : null;
+  const v = (line, s) => (ovr && ovr[line] ? ovr[line][s] : S[line]?.[s]?.value ?? null);
+  const ovrRule = line => (ovr && ovr[line] ? ` title="${escHtml(`recalculated on this page from the PAT Predictor tab's inputs (${patLive.desc})`)}"` : null);
   const winLabel = k => BRK_VAL_WINDOWS.find(w => w[0] === k)[1];
   const seg = `<div class="rx-seg" role="group" aria-label="Timeline" data-rx-seg="brkValWin">${BRK_VAL_WINDOWS.map(([k, l]) => {
     const on = avail.includes(k);
@@ -78,13 +100,13 @@ async function buildBrokersValuation() {
       Greyed-out periods start before the data do.</p>`;
   const sameRun = summary.run && summary.run.run_id === val.run.run_id;
   const view = BRK_BROKER.view, id = s => `brk-${view}-val-${s}`;
-  const tip = r => (r?.rule ? ` title="${escHtml(r.rule)}"` : '');
+  const tip = (r, line) => (line && ovrRule(line)) || (r?.rule ? ` title="${escHtml(r.rule)}"` : '');
   const pct = w => `${fmtNum(w * 100, 0)} %`;
 
   // ── KPIs ──
   const kpis = [
     rxKpi('Share price', rxRupee(close, 2), closeOn ? `close on ${escHtml(fmtLongDate(closeOn[1]))}` : ''),
-    rxKpi('Net value · base', rxRupee(v('net', 'base'), 0), v('upside', 'base') == null ? '' : `${rxChangeHTML(v('upside', 'base'))} vs the close`, { accent: true }),
+    rxKpi(ovr ? 'Net value · base (your inputs)' : 'Net value · base', rxRupee(v('net', 'base'), 0), v('upside', 'base') == null ? '' : `${rxChangeHTML(v('upside', 'base'))} vs the close`, { accent: true }),
     rxKpi('Bear – bull', `${rxRupee(v('net', 'bear'), 0)} – ${rxRupee(v('net', 'bull'), 0)}`,
       `${rxChangeHTML(v('upside', 'bear'))} to ${rxChangeHTML(v('upside', 'bull'))}`),
     rxKpi('Current ADR', `${rxCr(inp('adr_now'), 2)}<small> / day</small>`, escHtml((I.adr_now?.rule || '').replace(/^mean daily ADR \(broking \+ MTF\) over /, ''))),
@@ -93,18 +115,18 @@ async function buildBrokersValuation() {
 
   // ── Triangulation ──
   const row = ([m, lbl]) => `<tr><td class="rx-l">${escHtml(lbl)}</td><td>${X.weight[m] ? pct(X.weight[m].value) : '—'}</td>${BRK_VAL_SCEN.map(([s]) =>
-    `<td${tip(S[m]?.[s])}>${v(m, s) == null ? '—' : fmtNum(v(m, s), 2)}</td>`).join('')}</tr>`;
+    `<td${tip(S[m]?.[s], m)}${ovr && ovr[m] ? ' class="brk-pat-chg"' : ''}>${v(m, s) == null ? '—' : fmtNum(v(m, s), 2)}</td>`).join('')}</tr>`;
   const triangulation = rxPanel({
-    title: 'Valuation: three methods', meta: `₹ per share · ${escHtml(winLabel(fitWin))} · hover a figure for its arithmetic`,
+    title: 'Valuation: three methods', meta: `₹ per share · ${escHtml(winLabel(fitWin))}${ovr ? ' · ADR method at the PAT Predictor\'s inputs' : ''} · hover a figure for its arithmetic`,
     body: `<div class="rx-scroll"><table class="rx-table brk-val-table">
       <thead><tr><th scope="col" class="rx-l">Method</th><th scope="col">Weight</th>${BRK_VAL_SCEN.map(([, l]) => `<th scope="col">${l}</th>`).join('')}</tr></thead>
       <tbody>${BRK_VAL_METHODS.map(row).join('')}
-        <tr class="rx-sub"><td class="rx-l">Net value (weighted)</td><td>100 %</td>${BRK_VAL_SCEN.map(([s]) => `<td${tip(S.net?.[s])}>${fmtNum(v('net', s), 2)}</td>`).join('')}</tr>
-        <tr><td class="rx-l">Upside vs the close</td><td></td>${BRK_VAL_SCEN.map(([s]) => { const u = v('upside', s); return `<td class="${u >= 0 ? 'rx-up' : 'rx-dn'}"${tip(S.upside?.[s])}>${rxSignedPct(u)}</td>`; }).join('')}</tr>
+        <tr class="rx-sub"><td class="rx-l">Net value (weighted)</td><td>100 %</td>${BRK_VAL_SCEN.map(([s]) => `<td${tip(S.net?.[s], 'net')}${ovr ? ' class="brk-pat-chg"' : ''}>${fmtNum(v('net', s), 2)}</td>`).join('')}</tr>
+        <tr><td class="rx-l">Upside vs the close</td><td></td>${BRK_VAL_SCEN.map(([s]) => { const u = v('upside', s); return `<td class="${u >= 0 ? 'rx-up' : 'rx-dn'}${ovr ? ' brk-pat-chg' : ''}"${tip(S.upside?.[s], 'upside')}>${rxSignedPct(u)}</td>`; }).join('')}</tr>
       </tbody></table></div>`,
     foot: `Regression: ${escHtml(I.slope ? `price = ${fmtNum(inp('slope'), 3)} × 45-day ADR + ${fmtNum(inp('intercept'), 2)}` : '—')}; bear / bull move the slope term by ∓ ${pct(inp('band') || 0)}.
       Ratio: price ÷ 45-day ADR, mean ${fmtNum(inp('ratio_mean'), 2)} ± 1 SD ${fmtNum(inp('ratio_sd'), 2)}, × the current ADR.
-      ADR: the PAT Predictor tab's FY 2028 target price today (P/E × EPS, discounted).`,
+      ADR: the PAT Predictor tab's FY 2028 target price today (P/E × EPS, discounted)${ovr ? `, here at the inputs you set on that tab (${escHtml(patLive.desc)}), so the ADR row, the net value and the upside are recalculated on this page with the published weights; reset them there to see the published figures` : ''}.`,
     how: rxHow('Inputs and their source', `<div class="rx-scroll"><table class="rx-table">
       <tbody>${Object.values(I).sort((a, b) => a.sort_order - b.sort_order).map(r => `<tr><td class="rx-l">${escHtml(r.label)}</td><td>${r.unit === 'fraction' ? fmtNum(r.value, 3) : fmtNum(r.value, r.unit === 'days' ? 0 : 2)}</td><td class="rx-l rx-wrap">${escHtml(r.rule || '')}</td></tr>`).join('')}</tbody></table></div>
       <p class="rx-foot">The weights, band, 45-day window and series start are rows of <code>sb_assumptions</code> (key prefix <code>val_</code>) in the brokers-dashboard project, each naming its workbook cell.</p>`),
@@ -129,7 +151,7 @@ async function buildBrokersValuation() {
   }
 
   el.innerHTML = `<div class="brk-wrap">${summary.run ? brkRunBar({ legend: false }) : ''}<div class="rx">
-    ${rxAlert(`<strong>Valuation, as the engine published it</strong> from ${name}'s daily ADR (run <code title="${escHtml(val.run.run_id)}">${escHtml(val.run.run_id.slice(0, 8))}</code>, as of ${escHtml(fmtLongDate(val.run.as_of_date))})${sameRun ? '' : ', an earlier run than the ADR tabs show: the valuation has not been published for the latest run yet'}. Every figure is the engine's; the page only draws chart lines from its published parameters.`, 'info')}
+    ${rxAlert(`<strong>Valuation, as the engine published it</strong> from ${name}'s daily ADR (run <code title="${escHtml(val.run.run_id)}">${escHtml(val.run.run_id.slice(0, 8))}</code>, as of ${escHtml(fmtLongDate(val.run.as_of_date))})${sameRun ? '' : ', an earlier run than the ADR tabs show: the valuation has not been published for the latest run yet'}. ${ovr ? `The ADR method uses the PAT Predictor tab's inputs as you edited them (${escHtml(patLive.desc)}): it, the net value and the upside are recalculated on this page; every other figure is the engine's.` : 'Every figure is the engine\'s; the page only draws chart lines from its published parameters.'}`, 'info')}
     ${controls}
     <section class="rx-kpis" aria-label="Valuation summary">${kpis}</section>
     ${triangulation}
