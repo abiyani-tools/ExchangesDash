@@ -74,7 +74,10 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   `33-brokers-pat.js` re-runs the engine's PAT recompute (a port of its `src/engine/pat_kit.py`)
   from the kit rows the engine publishes in `sb_pat_lines`, and the Valuation tab re-weights its ADR
   method with it; at the defaults it must reproduce the published lines (checked on load), and
-  `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The summary view also returns each
+  `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The Valuation
+  tab's three method weights are inputs as well: the net value and upside are re-weighted on the page with the reader's
+  weights (`brkValScale`, scaled to add up to 100 %, then the engine's Σ weight × price, `brkValReweight`); the
+  method prices themselves stay the engine's. These edits are never saved. The summary view also returns each
   panel's last data day (`through`); the run bar shows MTF's, and a panel whose data ends before the
   run's as-of date is flagged (the engine has published runs whose MTF stopped days early). Use the Indian FY (Apr–Mar),
   ₹ Cr, and `quarterSortKey` to sort quarters.
