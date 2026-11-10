@@ -121,7 +121,7 @@ function brkActiveTab() {
 // A view's build(): the Summary now; the other tabs build when shown (brkShow)
 function brkBuild() {
   buildBrokersSummary();
-  ['daily', 'calib', 'price', 'fo', 'pat'].forEach(t => { const el = brkSection(t); if (el) el.innerHTML = ''; });
+  ['daily', 'calib', 'price', 'fo', 'pat', 'val'].forEach(t => { const el = brkSection(t); if (el) el.innerHTML = ''; });
 }
 
 // A view's onShow(tab)
@@ -131,6 +131,7 @@ function brkShow(tab) {
   else if (tab === 'price') buildBrokersPrice();   // js/31-brokers-price.js
   else if (tab === 'fo') buildBrokersFo();         // js/32-brokers-fo-drivers.js
   else if (tab === 'pat') buildBrokersPat();       // js/33-brokers-pat.js
+  else if (tab === 'val') buildBrokersValuation(); // js/34-brokers-valuation.js
 }
 
 // A view's meta(): header quarter and "Last Updated"
@@ -500,9 +501,9 @@ BRK_VIEWS.forEach(def => registerBrokerView({
     { id: 'calib', label: 'Calibration', icon: 'advanced' },
     { id: 'price', label: 'Price vs ADR', icon: 'share' },
     { id: 'fo', label: 'F&O vs Exchanges', icon: 'temporal' },
-    ...(def.pat ? [{ id: 'pat', label: 'PAT Predictor', icon: 'prediction' }] : []),
+    ...(def.pat ? [{ id: 'pat', label: 'PAT Predictor', icon: 'prediction' }, { id: 'val', label: 'Valuation', icon: 'revenue' }] : []),
   ],
-  titles: { summary: `${def.label}: ADR Summary`, daily: `${def.label}: Daily ADR`, calib: `${def.label}: Calibration`, price: `${def.label}: Share price vs ADR`, fo: `${def.label}: F&O vs exchange revenue`, pat: `${def.label}: PAT Predictor` },
+  titles: { summary: `${def.label}: ADR Summary`, daily: `${def.label}: Daily ADR`, calib: `${def.label}: Calibration`, price: `${def.label}: Share price vs ADR`, fo: `${def.label}: F&O vs exchange revenue`, pat: `${def.label}: PAT Predictor`, val: `${def.label}: Valuation` },
   load: owns => brkLoad(def, BRK.mode, owns),
   build: brkBuild,
   onShow: brkShow,
