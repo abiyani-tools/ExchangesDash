@@ -17,7 +17,9 @@
 const BRK_VAL_METHODS = [['regression', 'Regression'], ['ratio', 'Ratio analysis'], ['adr', 'ADR (PAT model)']];
 const BRK_VAL_SCEN = [['bear', 'Bear'], ['base', 'Base'], ['bull', 'Bull']];
 // Timeline: the regression and ratio are fitted over the window, and the P/E bands drawn over it ('all' = the
-// workbook's own window, the whole series). The engine publishes every window the data cover.
+// workbook's own window, the whole series). The engine publishes every window the data cover. The Timeline above
+// the KPIs sets the valuation table and every chart; each chart also has its own (BRK.valView.chart), which
+// redraws only that chart from the window's published fit, ratio band or P/E band.
 const BRK_VAL_WINDOWS = [['all', 'All'], ['3m', '3M'], ['6m', '6M'], ['1y', '1Y'], ['2y', '2Y'], ['3y', '3Y'], ['apr25', 'Since Apr 2025']];
 BRK.valView = { win: 'all' };
 // The method weights as the reader set them, per broker id: { run, w: { method: fraction } }. Kept only
@@ -185,7 +187,7 @@ async function buildBrokersValuation() {
       ? `All: the workbook's window, every day with a 45-day ADR and a close (${escHtml(fmtLongDate(fitSince))} on).`
       : fitWin === win ? `${winLabel(win)}: the regression and the ratio bands are fitted over the days from ${escHtml(fmtLongDate(fitSince))}; the ADR leg does not depend on the window.`
         : `${winLabel(win)}: ${escHtml(BRK_BROKER.name)}'s daily ADR starts later than the window, so the regression and ratio stay on All (from ${escHtml(fmtLongDate(fitSince))}); the P/E band uses ${winLabel(win)}.`}
-      Greyed-out periods start before the data do.</p>`;
+      Greyed-out periods start before the data do. Each chart has its own Timeline too; picking one here sets them all.</p>`;
   const sameRun = summary.run && summary.run.run_id === val.run.run_id;
   const view = BRK_BROKER.view, id = s => `brk-${view}-val-${s}`;
   const tip = (r, line) => (line && ovrRule(line)) || (r?.rule ? ` title="${escHtml(r.rule)}"` : '');
@@ -227,25 +229,25 @@ async function buildBrokersValuation() {
       <p class="rx-foot">The weights, band, 45-day window and series start are rows of <code>sb_assumptions</code> (key prefix <code>val_</code>) in the brokers-dashboard project, each naming its workbook cell.</p>`),
   });
 
-  // ── Charts (the workbook's ADR model sheets) ──
-  const since = win === 'all' ? '' : fitWin === win ? fitSince : (brkValSince(X.bands[win]?.pe_mean) || fitSince);
-  const D = X.days.filter(d => d.dma != null && d.price != null && d.date >= (fitWin === win ? since : ''));
-  const peP = rxPanel;
-  const charts = [
-    rxPanel({ cls: 'rx-col-half', title: 'Share price vs 45-day ADR', meta: '₹ (left) · ₹ Cr / day (right)', body: `<div class="rx-pb">${rxCanvas(id('line'))}<div data-brk-leg="line"></div></div>` }),
-    rxPanel({ cls: 'rx-col-half', title: 'Share price vs 45-day ADR: fit', meta: escHtml(`price = ${fmtNum(inp('slope'), 2)} × ADR + ${fmtNum(inp('intercept'), 2)} · R² ${fmtNum(inp('r2'), 3)}`), body: `<div class="rx-pb">${rxCanvas(id('scatter'))}<div data-brk-leg="scatter"></div></div>` }),
-    rxPanel({ cls: 'rx-col-half', title: 'Share price ÷ 45-day ADR', meta: 'mean ± 1 / 2 SD (population)', body: `<div class="rx-pb">${rxCanvas(id('ratio'))}<div data-brk-leg="ratio"></div></div>` }),
-    rxPanel({ cls: 'rx-col-half', title: 'Actual vs regression-implied price', meta: '₹', body: `<div class="rx-pb">${rxCanvas(id('implied'))}<div data-brk-leg="implied"></div></div>` }),
-  ];
-  // P/E bands: the workbook's two windows under All (or the whole series where they are not covered), else the chosen one
+  // ── Charts (the workbook's ADR model sheets), each with its own Timeline (BRK.valView.chart, kept until the
+  // Timeline above is changed, which sets them all) ──
+  const chartWin = st.chart || (st.chart = {});
+  const winKeys = BRK_VAL_WINDOWS.map(([k]) => k);
+  const fitOk = winKeys.filter(k => X.sum[k]);        // the ADR charts: windows the engine fitted
+  const peOk = winKeys.filter(k => X.bands[k]);       // the P/E charts: windows with a published band
+  const peKeys = X.pe.length ? brkValPeWindows(win, X.bands) : [];   // one P/E chart per default band
+  const pick = (name, dflt, ok) => (ok.includes(chartWin[name]) ? chartWin[name] : dflt);
+  const winSel = (name, cur, ok) => `<label class="brk-val-cw"><span>Timeline</span><select class="rx-in" data-val-cw="${name}" aria-label="Timeline of this chart" title="Greyed-out periods start before the data do">${BRK_VAL_WINDOWS.map(([k, l]) =>
+    `<option value="${k}"${k === cur ? ' selected' : ''}${ok.includes(k) ? '' : ' disabled'}>${l}</option>`).join('')}</select></label>`;
+  const panel = (name, title, ok, cur) => rxPanel({ cls: 'rx-col-half', title, meta: '…', attrs: `data-val-chart="${name}"`,
+    right: winSel(name, cur, ok), body: `<div class="rx-pb">${rxCanvas(id(name))}<div data-brk-leg="${name}"></div></div>` });
+  const ADR_CHARTS = [['line', 'Share price vs 45-day ADR'], ['scatter', 'Share price vs 45-day ADR: fit'],
+    ['ratio', 'Share price ÷ 45-day ADR'], ['implied', 'Actual vs regression-implied price']];
   const peLabel = k => (k === '3y' ? 'last 3 years' : k === 'apr25' ? 'since Apr 2025'
     : k === 'all' ? `all days, from ${fmtLongDate(brkValSince(X.bands.all.pe_mean))}` : winLabel(k));
-  const peWin = brkValPeWindows(win, X.bands).map(k => [k, peLabel(k)]);
-  if (X.pe.length && peWin.length) {
-    peWin.forEach(([k, l]) => charts.push(peP({ cls: 'rx-col-half', title: `Consolidated TTM P/E · ${l}`,
-      meta: escHtml(`mean ${fmtNum(X.bands[k].pe_mean.value, 1)}× ± 1 / 2 SD ${fmtNum(X.bands[k].pe_sd.value, 1)} · ${X.bands[k].pe_mean.rule}`),
-      body: `<div class="rx-pb">${rxCanvas(id('pe-' + k))}<div data-brk-leg="pe-${k}"></div></div>` })));
-  }
+  const peTitle = k => `Consolidated TTM P/E · ${peLabel(k)}`;
+  const charts = ADR_CHARTS.map(([n, t]) => panel(n, t, fitOk, pick(n, fitWin, fitOk)))
+    .concat(peKeys.map((k0, i) => panel(`pe${i}`, peTitle(pick(`pe${i}`, k0, peOk)), peOk, pick(`pe${i}`, k0, peOk))));
 
   el.innerHTML = `<div class="brk-wrap">${summary.run ? brkRunBar({ legend: false }) : ''}<div class="rx">
     ${rxAlert(`<strong>Valuation, as the engine published it</strong> from ${name}'s daily ADR (run <code title="${escHtml(val.run.run_id)}">${escHtml(val.run.run_id.slice(0, 8))}</code>, as of ${escHtml(fmtLongDate(val.run.as_of_date))})${sameRun ? '' : ', an earlier run than the ADR tabs show: the valuation has not been published for the latest run yet'}. ${ovr ? `The ADR method uses the PAT Predictor tab's inputs as you edited them (${escHtml(patLive.desc)}): it, the net value and the upside are recalculated on this page; every other figure is the engine's.` : 'Every figure is the engine\'s; the page only draws chart lines from its published parameters.'}`, 'info')}
@@ -255,48 +257,20 @@ async function buildBrokersValuation() {
     <div class="rx-row">${charts.join('')}</div>
   </div></div>`;
   const root = el.firstElementChild;
-  rxOnSeg(root, 'brkValWin', k => { st.win = k; buildBrokersValuation(); });
+  rxOnSeg(root, 'brkValWin', k => { st.win = k; st.chart = {}; buildBrokersValuation(); });
   if (wst) brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId: val.run.run_id, broker: BRK_BROKER.id });
 
-  const labels = D.map(r => fmtChartDate(r.date));
-  const dateTitle = items => rxDate(D[items[0].dataIndex].date);
   const xTicks = dates => ({ grid: { display: false }, afterBuildTicks: brkMonthTicks(dates, 6), ticks: { maxTicksLimit: 6, maxRotation: 0, autoSkip: true } });
   const rupee = { ticks: { callback: x => '₹' + fmtNum(x, 0) } };
-
-  rxChart(`brk-${view}-val-line`, id('line'), 260, {
-    type: 'line',
-    data: { labels, datasets: [
-      { label: 'Share price', data: D.map(r => r.price), borderColor: RX.ink, borderWidth: 1.75, pointRadius: 0, tension: 0, yAxisID: 'y' },
-      { label: '45-day ADR', data: D.map(r => r.dma), borderColor: RX.rev, borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: 'y1' },
-    ] },
-    options: {
-      interaction: { mode: 'index', intersect: false },
-      plugins: { tooltip: { callbacks: { title: dateTitle, label: c => c.datasetIndex ? ` 45-day ADR ₹${fmtNum(c.raw, 2)} Cr` : ` Close ₹${fmtNum(c.raw, 2)}` } } },
-      scales: { x: xTicks(D.map(r => r.date)), y: rupee, y1: { position: 'right', grid: { display: false }, ticks: { callback: x => fmtNum(x, 0) } } },
-    },
-  });
-  root.querySelector('[data-brk-leg="line"]').innerHTML = rxLegend([
-    { label: 'Share price (₹, left)', color: RX.ink, kind: 'line' }, { label: '45-day ADR (₹ Cr / day, right)', color: RX.rev, kind: 'line' }]);
-
-  const xs = D.map(r => r.dma), xMin = Math.min(...xs), xMax = Math.max(...xs), last = D[D.length - 1];
-  const fitAt = x => inp('slope') * x + inp('intercept');
-  rxChart(`brk-${view}-val-scatter`, id('scatter'), 260, {
-    type: 'scatter',
-    data: { datasets: [
-      { label: 'Day', data: D.map(r => ({ x: r.dma, y: r.price, date: r.date })), pointBackgroundColor: D.map((r, i) => RX.seq[Math.min(4, Math.floor(i / D.length * 5))]),
-        pointBorderColor: '#FFFFFF', pointBorderWidth: 0.5, pointRadius: 3, pointHoverRadius: 5 },
-      { label: 'Latest', data: [{ x: last.dma, y: last.price, date: last.date }], pointBackgroundColor: '#FFFFFF', pointBorderColor: RX.ink, pointBorderWidth: 2, pointRadius: 6 },
-      { type: 'line', label: 'Fit', data: [{ x: xMin, y: fitAt(xMin) }, { x: xMax, y: fitAt(xMax) }], borderColor: RX.model, borderDash: [5, 3], borderWidth: 1.75, pointRadius: 0 },
-    ] },
-    options: {
-      plugins: { tooltip: { filter: i => i.dataset.label !== 'Fit', callbacks: { title: items => rxDate(items[0].raw.date), label: c => ` 45-day ADR ₹${fmtNum(c.parsed.x, 2)} Cr · close ₹${fmtNum(c.parsed.y, 0)}` } } },
-      scales: { x: { type: 'linear', grace: '4%', title: { display: true, text: '45-day ADR, ₹ Cr / day' } }, y: { grace: '4%', ...rupee } },
-    },
-  });
-  root.querySelector('[data-brk-leg="scatter"]').innerHTML = rxLegend([
-    { label: 'Older', color: RX.seq[0] }, { label: 'Recent', color: RX.seq[4] },
-    { label: `Latest (${fmtTradeDate(last.date)})`, color: '#FFFFFF', style: `border:2px solid ${RX.ink};border-radius:50%;width:11px;height:11px` },
-    { label: 'Fit', color: RX.model, kind: 'dash' }]);
+  // a window's days (every day with a 45-day ADR and a close, from the window's first fitted day) and its fit
+  const daysOf = k => { const from = k === 'all' ? '' : brkValSince(X.inputs[k]?.fit_days); return X.days.filter(d => d.dma != null && d.price != null && d.date >= from); };
+  const fitOf = k => { const g = n => X.inputs[k]?.[n]?.value ?? null; return { slope: g('slope'), intercept: g('intercept'), r2: g('r2'), mean: g('ratio_mean'), sd: g('ratio_sd'), n: g('fit_days') }; };
+  const head = (name, meta, title) => {
+    const p = root.querySelector(`[data-val-chart="${name}"]`);
+    if (title) p.querySelector('h2').textContent = title;
+    p.querySelector('.rx-meta').textContent = meta;
+  };
+  const span = (D, k) => `${winLabel(k)}: ${fmtTradeDate(D[0].date)} – ${fmtTradeDate(D[D.length - 1].date)}`;
 
   // mean ± 1 / 2 SD bands, drawn from a published mean and SD
   const bandChart = (key, canvasId, dates, values, m, sd, fmt, tipLabel) => {
@@ -326,29 +300,85 @@ async function buildBrokersValuation() {
       { label: `± 2 SD (${fmtNum(m - 2 * sd, 1)}–${fmtNum(m + 2 * sd, 1)})`, color: 'rgba(43, 92, 200, 0.07)', style: 'box-shadow:inset 0 0 0 1px #DCE5F7' },
       { label: `Mean ${fmtNum(m, 1)}`, color: RX.muted, kind: 'dash' }]);
   };
-  root.querySelector('[data-brk-leg="ratio"]').innerHTML = bandChart(`brk-${view}-val-ratio`, id('ratio'), D.map(r => r.date), D.map(r => r.ratio),
-    inp('ratio_mean'), inp('ratio_sd'), x => fmtNum(x, 2) + '×', 'Price ÷ 45-day ADR');
+  const legOf = name => root.querySelector(`[data-brk-leg="${name}"]`);
 
-  rxChart(`brk-${view}-val-implied`, id('implied'), 260, {
-    type: 'line',
-    data: { labels, datasets: [
-      { label: 'Actual', data: D.map(r => r.price), borderColor: RX.ink, borderWidth: 1.75, pointRadius: 0, tension: 0 },
-      { label: 'Regression-implied', data: D.map(r => (fitWin === 'all' ? r.implied : fitAt(r.dma))), borderColor: RX.model, borderWidth: 1.5, borderDash: [5, 3], pointRadius: 0, tension: 0 },
-    ] },
-    options: {
-      interaction: { mode: 'index', intersect: false },
-      plugins: { tooltip: { callbacks: { title: dateTitle, label: c => ` ${c.dataset.label} ₹${fmtNum(c.raw, 0)}` } } },
-      scales: { x: xTicks(D.map(r => r.date)), y: rupee },
+  const draw = {
+    line(name, k) {
+      const D = daysOf(k);
+      head(name, `${span(D, k)} · ₹ (left) · ₹ Cr / day (right)`);
+      rxChart(`brk-${view}-val-line`, id('line'), 260, {
+        type: 'line',
+        data: { labels: D.map(r => fmtChartDate(r.date)), datasets: [
+          { label: 'Share price', data: D.map(r => r.price), borderColor: RX.ink, borderWidth: 1.75, pointRadius: 0, tension: 0, yAxisID: 'y' },
+          { label: '45-day ADR', data: D.map(r => r.dma), borderColor: RX.rev, borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: 'y1' },
+        ] },
+        options: {
+          interaction: { mode: 'index', intersect: false },
+          plugins: { tooltip: { callbacks: { title: items => rxDate(D[items[0].dataIndex].date), label: c => c.datasetIndex ? ` 45-day ADR ₹${fmtNum(c.raw, 2)} Cr` : ` Close ₹${fmtNum(c.raw, 2)}` } } },
+          scales: { x: xTicks(D.map(r => r.date)), y: rupee, y1: { position: 'right', grid: { display: false }, ticks: { callback: x => fmtNum(x, 0) } } },
+        },
+      });
+      legOf(name).innerHTML = rxLegend([
+        { label: 'Share price (₹, left)', color: RX.ink, kind: 'line' }, { label: '45-day ADR (₹ Cr / day, right)', color: RX.rev, kind: 'line' }]);
     },
-  });
-  root.querySelector('[data-brk-leg="implied"]').innerHTML = rxLegend([
-    { label: 'Actual share price', color: RX.ink, kind: 'line' }, { label: 'Regression-implied price', color: RX.model, kind: 'dash' }]);
-
-  peWin.forEach(([k]) => {
-    const b = X.bands[k], from = brkValSince(b.pe_mean);
-    const P = X.pe.filter(r => r.date >= from);
-    const leg = root.querySelector(`[data-brk-leg="pe-${k}"]`);
-    if (leg) leg.innerHTML = bandChart(`brk-${view}-val-pe-${k}`, id('pe-' + k), P.map(r => r.date), P.map(r => r.pe),
-      b.pe_mean.value, b.pe_sd.value, x => fmtNum(x, 1) + '×', 'Consolidated TTM P/E');
-  });
+    scatter(name, k) {
+      const D = daysOf(k), f = fitOf(k), fitAt = x => f.slope * x + f.intercept;
+      const xs = D.map(r => r.dma), xMin = Math.min(...xs), xMax = Math.max(...xs), last = D[D.length - 1];
+      head(name, `${winLabel(k)}: price = ${fmtNum(f.slope, 2)} × ADR ${f.intercept < 0 ? '−' : '+'} ${fmtNum(Math.abs(f.intercept), 2)} · R² ${fmtNum(f.r2, 3)} · ${fmtNum(f.n, 0)} days`);
+      rxChart(`brk-${view}-val-scatter`, id('scatter'), 260, {
+        type: 'scatter',
+        data: { datasets: [
+          { label: 'Day', data: D.map(r => ({ x: r.dma, y: r.price, date: r.date })), pointBackgroundColor: D.map((r, i) => RX.seq[Math.min(4, Math.floor(i / D.length * 5))]),
+            pointBorderColor: '#FFFFFF', pointBorderWidth: 0.5, pointRadius: 3, pointHoverRadius: 5 },
+          { label: 'Latest', data: [{ x: last.dma, y: last.price, date: last.date }], pointBackgroundColor: '#FFFFFF', pointBorderColor: RX.ink, pointBorderWidth: 2, pointRadius: 6 },
+          { type: 'line', label: 'Fit', data: [{ x: xMin, y: fitAt(xMin) }, { x: xMax, y: fitAt(xMax) }], borderColor: RX.model, borderDash: [5, 3], borderWidth: 1.75, pointRadius: 0 },
+        ] },
+        options: {
+          plugins: { tooltip: { filter: i => i.dataset.label !== 'Fit', callbacks: { title: items => rxDate(items[0].raw.date), label: c => ` 45-day ADR ₹${fmtNum(c.parsed.x, 2)} Cr · close ₹${fmtNum(c.parsed.y, 0)}` } } },
+          scales: { x: { type: 'linear', grace: '4%', title: { display: true, text: '45-day ADR, ₹ Cr / day' } }, y: { grace: '4%', ...rupee } },
+        },
+      });
+      legOf(name).innerHTML = rxLegend([
+        { label: 'Older', color: RX.seq[0] }, { label: 'Recent', color: RX.seq[4] },
+        { label: `Latest (${fmtTradeDate(last.date)})`, color: '#FFFFFF', style: `border:2px solid ${RX.ink};border-radius:50%;width:11px;height:11px` },
+        { label: 'Fit', color: RX.model, kind: 'dash' }]);
+    },
+    ratio(name, k) {
+      const D = daysOf(k), f = fitOf(k);
+      head(name, `${span(D, k)} · mean ± 1 / 2 SD (population)`);
+      legOf(name).innerHTML = bandChart(`brk-${view}-val-ratio`, id('ratio'), D.map(r => r.date), D.map(r => r.ratio),
+        f.mean, f.sd, x => fmtNum(x, 2) + '×', 'Price ÷ 45-day ADR');
+    },
+    implied(name, k) {
+      const D = daysOf(k), f = fitOf(k), fitAt = x => f.slope * x + f.intercept;
+      head(name, `${span(D, k)} · ₹ · fitted over these days`);
+      rxChart(`brk-${view}-val-implied`, id('implied'), 260, {
+        type: 'line',
+        data: { labels: D.map(r => fmtChartDate(r.date)), datasets: [
+          { label: 'Actual', data: D.map(r => r.price), borderColor: RX.ink, borderWidth: 1.75, pointRadius: 0, tension: 0 },
+          { label: 'Regression-implied', data: D.map(r => (k === 'all' ? r.implied : fitAt(r.dma))), borderColor: RX.model, borderWidth: 1.5, borderDash: [5, 3], pointRadius: 0, tension: 0 },
+        ] },
+        options: {
+          interaction: { mode: 'index', intersect: false },
+          plugins: { tooltip: { callbacks: { title: items => rxDate(D[items[0].dataIndex].date), label: c => ` ${c.dataset.label} ₹${fmtNum(c.raw, 0)}` } } },
+          scales: { x: xTicks(D.map(r => r.date)), y: rupee },
+        },
+      });
+      legOf(name).innerHTML = rxLegend([
+        { label: 'Actual share price', color: RX.ink, kind: 'line' }, { label: 'Regression-implied price', color: RX.model, kind: 'dash' }]);
+    },
+    pe(name, k) {
+      const b = X.bands[k], from = brkValSince(b.pe_mean), P = X.pe.filter(r => r.date >= from);
+      head(name, `mean ${fmtNum(b.pe_mean.value, 1)}× ± 1 / 2 SD ${fmtNum(b.pe_sd.value, 1)} · ${b.pe_mean.rule}`, peTitle(k));
+      legOf(name).innerHTML = bandChart(`brk-${view}-val-${name}`, id(name), P.map(r => r.date), P.map(r => r.pe),
+        b.pe_mean.value, b.pe_sd.value, x => fmtNum(x, 1) + '×', 'Consolidated TTM P/E');
+    },
+  };
+  const drawChart = (name, k) => (name.startsWith('pe') ? draw.pe(name, k) : draw[name](name, k));
+  ADR_CHARTS.forEach(([n]) => drawChart(n, pick(n, fitWin, fitOk)));
+  peKeys.forEach((k0, i) => drawChart(`pe${i}`, pick(`pe${i}`, k0, peOk)));
+  root.querySelectorAll('[data-val-cw]').forEach(sel => sel.addEventListener('change', () => {
+    chartWin[sel.dataset.valCw] = sel.value;
+    drawChart(sel.dataset.valCw, sel.value);
+  }));
 }

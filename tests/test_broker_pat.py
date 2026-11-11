@@ -217,6 +217,12 @@ class Markup(unittest.TestCase):
         self.assertIn("data-val-reset", src)           # back to the published weights
         self.assertIn("const BRK_VAL_W = {};", src)    # memory only, per broker and run
 
+    def test_each_valuation_chart_has_its_own_timeline(self):
+        src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()
+        self.assertIn('data-val-cw="${name}"', src)       # one Timeline per chart
+        self.assertIn("st.win = k; st.chart = {};", src)  # the Timeline above sets them all
+        self.assertIn("drawChart(sel.dataset.valCw, sel.value)", src)   # a pick redraws only its chart
+
 
 if __name__ == "__main__":
     unittest.main()
