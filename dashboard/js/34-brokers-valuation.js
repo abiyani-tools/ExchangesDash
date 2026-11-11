@@ -56,7 +56,8 @@ async function buildBrokersValuation() {
   if (!BRK.val || BRK.valFor !== summary) {
     el.innerHTML = '<div class="brk-wrap"><div class="brk-empty">Loading the valuation…</div></div>';
     let val;
-    try { val = await brkFetch('valuation', BRK.mode); } catch (err) {
+    const slow = () => { if (BRK.summary === summary) el.innerHTML = '<div class="brk-wrap"><div class="brk-empty">Still loading the valuation… asked the server again.</div></div>'; };
+    try { val = await brkFetchPatient('valuation', BRK.mode, slow); } catch (err) {
       el.innerHTML = `<div class="brk-wrap"><div class="brk-empty">Couldn't load the valuation: ${escHtml(err.message)}</div></div>`;
       return;
     }

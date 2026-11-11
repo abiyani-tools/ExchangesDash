@@ -72,6 +72,37 @@ function brkFetch(view, mode, broker = BRK_BROKER.id) {
   return fetchDataFile(`/api/brokers?broker=${broker}&mode=${mode}&view=${view}`).then(r => r.json);
 }
 
+// brkFetch that one stuck response can't hold up: if nothing has come back after
+// BRK_SLOW_MS, onSlow() runs and the same URL is asked again (no cache-busting
+// parameter, see above). The retry is its own fetch() with cache: 'no-store':
+// fetchDataFile would hand back the request already in flight, and the browser's
+// HTTP cache holds a second request for a URL until the first finishes (Chrome lets
+// it go after about 20 s). The first answer wins; it rejects only once every
+// request has failed, and each gives up at FETCH_TIMEOUT_MS. On 10 Nov 2026 the PAT
+// tab's first request after a deploy had no answer after 15 s, while a fresh one
+// took 2 s.
+const BRK_SLOW_MS = 8000;
+function brkFetchPatient(view, mode, onSlow, broker = BRK_BROKER.id) {
+  const url = `/api/brokers?broker=${broker}&mode=${mode}&view=${view}`;
+  return new Promise((resolve, reject) => {
+    let settled = false, open = 1, timer = null;
+    const win = json => { if (!settled) { settled = true; clearTimeout(timer); resolve(json); } };
+    const lose = err => { if (!settled && --open === 0) { settled = true; clearTimeout(timer); reject(err); } };
+    timer = setTimeout(() => {
+      if (settled) return;
+      open++;
+      if (onSlow) onSlow();
+      const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      const giveUp = ctrl && setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      fetch(url, { cache: 'no-store', ...(ctrl ? { signal: ctrl.signal } : {}) })
+        .then(res => { if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`); return res.json(); })
+        .finally(() => clearTimeout(giveUp))
+        .then(win, lose);
+    }, BRK_SLOW_MS);
+    brkFetch(view, mode, broker).then(win, lose);
+  });
+}
+
 // The section of a tab of the broker on show (created by the shell)
 function brkSection(tab) { return brokerSection(BRK_BROKER.view, tab); }
 

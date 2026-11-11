@@ -282,7 +282,8 @@ async function buildBrokersPat() {
   if (!BRK.pat || BRK.patFor !== summary) {
     el.innerHTML = '<div class="brk-wrap"><div class="brk-empty">Loading the PAT model…</div></div>';
     let pat;
-    try { pat = await brkFetch('pat', BRK.mode); } catch (err) {
+    const slow = () => { if (BRK.summary === summary) el.innerHTML = '<div class="brk-wrap"><div class="brk-empty">Still loading the PAT model… asked the server again.</div></div>'; };
+    try { pat = await brkFetchPatient('pat', BRK.mode, slow); } catch (err) {
       el.innerHTML = `<div class="brk-wrap"><div class="brk-empty">Couldn't load the PAT model: ${escHtml(err.message)}</div></div>`;
       return;
     }
