@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-11T10:35:26Z",
+  "updated_at": "2026-11-11T10:37:04Z",
   "market_status": {
     "marketState": [
       {
@@ -60,8 +60,8 @@
         "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "11-Nov-2026 16:05",
-        "tradeDateFormatted": "11-Nov-2026 16:05",
+        "updated_time": "11-Nov-2026 16:06",
+        "tradeDateFormatted": "11-Nov-2026 16:06",
         "slickclass": "slick-item"
       }
     ],
@@ -88,16 +88,16 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 73805,
-      "DAYCHANGE": 1.5,
+      "CONTRACTSTRADED": 73853,
+      "DAYCHANGE": -11.5,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
-      "LASTPRICE": 25227,
+      "LASTPRICE": 25214,
       "OPTIONTYPE": "-",
-      "PERCHANGE": 0.01,
+      "PERCHANGE": -0.05,
       "STRIKEPRICE": 0,
       "SYMBOL": "NIFTY",
-      "TIMESTMP": "11-Nov-2026 16:02",
+      "TIMESTMP": "11-Nov-2026 16:05",
       "id": "1/NIFTYFUTIDX23-Nov-2026--"
     },
     "niftyusd": {
