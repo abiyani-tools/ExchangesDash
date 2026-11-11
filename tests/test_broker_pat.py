@@ -157,12 +157,71 @@ class ValuationReweight(unittest.TestCase):
         self.assertEqual(out["adr"], {"bear": 316, "base": 388, "bull": 460})
 
 
+@unittest.skipUnless(NODE, "node not installed")
+class ValuationWeights(unittest.TestCase):
+    """The reader's method weights (brkValScale), then brkValReweight on them."""
+    NAMES = ["BRK_VAL_METHODS", "BRK_VAL_SCEN", "brkValReweight", "brkValScale"]
+    VALUES = {"regression": {"bear": 290, "base": 310, "bull": 330}, "ratio": {"bear": 300, "base": 345, "bull": 390},
+              "adr": {"bear": 316, "base": 388, "bull": 460}}
+
+    def test_weights_that_add_up_are_kept(self):
+        out = js_eval(self.NAMES, "brkValScale({ regression: 0.5, ratio: 0.25, adr: 0.25 })")
+        self.assertAlmostEqual(out["sum"], 1)
+        self.assertEqual(out["scaled"], {"regression": 0.5, "ratio": 0.25, "adr": 0.25})
+
+    def test_weights_are_scaled_to_add_up_to_one(self):
+        out = js_eval(self.NAMES, "brkValScale({ regression: 0.6, ratio: 0.3, adr: 0.3 })")
+        self.assertAlmostEqual(out["sum"], 1.2)
+        self.assertAlmostEqual(out["scaled"]["regression"], 0.5)
+        self.assertAlmostEqual(sum(out["scaled"].values()), 1)
+
+    def test_all_zero_has_no_weighted_value(self):
+        self.assertIsNone(js_eval(self.NAMES, "brkValScale({ regression: 0, ratio: 0, adr: 0 })")["scaled"])
+
+    def test_net_value_at_the_readers_weights(self):
+        out = js_eval(self.NAMES, "brkValReweight(DATA.v, brkValScale(DATA.w).scaled, DATA.v.adr, 338)",
+                      {"v": self.VALUES, "w": {"regression": 0, "ratio": 0.5, "adr": 0.5}})
+        self.assertAlmostEqual(out["net"]["base"], 0.5 * 345 + 0.5 * 388)
+        self.assertAlmostEqual(out["upside"]["bear"], (0.5 * 300 + 0.5 * 316) / 338 - 1)
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class ValuationPeWindows(unittest.TestCase):
+    """Which P/E bands the Valuation tab draws (brkValPeWindows)."""
+    NAMES = ["brkValPeWindows"]
+    ANGEL = {k: {} for k in ("all", "3m", "6m", "1y", "2y", "3y", "apr25")}
+    GROWW = {k: {} for k in ("all", "3m", "6m")}   # listed Nov 2025: no 1y yet, no 3y / since Apr 2025
+
+    def test_all_shows_the_workbook_windows_where_covered(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", self.ANGEL), ["3y", "apr25"])
+
+    def test_all_falls_back_to_the_whole_series(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", self.GROWW), ["all"])
+
+    def test_a_window_shows_its_own_band_or_none(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('6m', DATA)", self.GROWW), ["6m"])
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('2y', DATA)", self.GROWW), [])
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", {}), [])
+
+
 class Markup(unittest.TestCase):
     def test_shared_state_lives_in_the_shell(self):
         src = {n: (ROOT / "dashboard" / "js" / n).read_text() for n in ("30-brokers.js", "33-brokers-pat.js", "34-brokers-valuation.js")}
         self.assertIn("const BRK_PAT_LIVE = {};", src["30-brokers.js"])
         self.assertIn("BRK_PAT_LIVE[broker] =", src["33-brokers-pat.js"])
         self.assertIn("BRK_PAT_LIVE[BRK_BROKER.id]", src["34-brokers-valuation.js"])
+
+    def test_valuation_weights_are_inputs(self):
+        src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()
+        self.assertIn('data-vw="${m}"', src)          # one input per method
+        self.assertIn("data-val-reset", src)           # back to the published weights
+        self.assertIn("const BRK_VAL_W = {};", src)    # memory only, per broker and run
+
+    def test_each_valuation_chart_has_its_own_timeline(self):
+        src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()
+        self.assertIn('data-val-cw="${name}"', src)       # one Timeline per chart
+        self.assertIn("st.win = k; st.chart = {};", src)  # the Timeline above sets them all
+        self.assertIn("drawChart(sel.dataset.valCw, sel.value)", src)   # a pick redraws only its chart
 
 
 if __name__ == "__main__":

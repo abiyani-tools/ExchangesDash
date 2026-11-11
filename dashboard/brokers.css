@@ -181,3 +181,22 @@
 }
 .brk-pat-inputs .rx-in { background: var(--rx-xl-key); border-color: var(--rx-xl-key-rule); color: var(--rx-xl-fill-ink); }
 .brk-pat-inputs .rx-in.is-edited { border-color: #D9A54A; }
+
+/* Valuation: the method weights as inputs (js/34-brokers-valuation.js, brkValWeightInputs) */
+.rx-table.brk-val-table td.brk-val-w { white-space: nowrap; }
+.rx-table.brk-val-table .brk-val-w .rx-num-in { width: 58px; }
+.brk-val-unit { margin-left: 4px; color: var(--rx-muted); }
+.rx-table.brk-val-table td.brk-val-off { color: #8a5a00; box-shadow: inset 0 -2px 0 #D9A54A; }
+.brk-val-wbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 8px 12px 0; }
+.brk-val-wbar .rx-foot { margin: 0; }
+.brk-val-wbar .rx-btn:disabled { opacity: .5; cursor: default; }
+/* each Valuation chart's own Timeline */
+.brk-val-cw { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--rx-muted); letter-spacing: .02em; }
+.brk-val-cw select.rx-in { width: auto; text-align: left; padding: 2px 6px; font-size: 12px; cursor: pointer; }
+@media (max-width: 640px) {
+  /* the weight inputs keep the table within a phone's width */
+  .rx-table.brk-val-table td, .rx-table.brk-val-table th { padding-left: 4px; padding-right: 4px; }
+  .rx-table.brk-val-table .brk-val-w .rx-num-in { width: 40px; padding: 3px 4px; }
+  .brk-val-unit { margin-left: 2px; }
+  .brk-val-wbar { padding: 8px 0 0; }
+}
