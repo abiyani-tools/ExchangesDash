@@ -124,6 +124,15 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
 // The window's first date, from its fit or P/E-band rule ("2026-08-06 to …")
 function brkValSince(r) { return (/^(\d{4}-\d{2}-\d{2})/.exec(r?.rule || '') || [])[1] || ''; }
 
+// The P/E bands to draw for a Timeline window, as band keys of `bands` (the published pe_bands by window).
+// A window: its own band. All: the workbook's two Angel One windows (last 3 years, since Apr 2025) where the
+// series covers them, else the whole series (band 'all': Groww, from its listing in Nov 2025).
+function brkValPeWindows(win, bands) {
+  if (win !== 'all') return bands[win] ? [win] : [];
+  const wb = ['3y', 'apr25'].filter(k => bands[k]);
+  return wb.length ? wb : bands.all ? ['all'] : [];
+}
+
 async function buildBrokersValuation() {
   const el = brkSection('val'), summary = BRK.summary;
   if (!BRK.val || BRK.valFor !== summary) {
@@ -228,8 +237,10 @@ async function buildBrokersValuation() {
     rxPanel({ cls: 'rx-col-half', title: 'Share price ÷ 45-day ADR', meta: 'mean ± 1 / 2 SD (population)', body: `<div class="rx-pb">${rxCanvas(id('ratio'))}<div data-brk-leg="ratio"></div></div>` }),
     rxPanel({ cls: 'rx-col-half', title: 'Actual vs regression-implied price', meta: '₹', body: `<div class="rx-pb">${rxCanvas(id('implied'))}<div data-brk-leg="implied"></div></div>` }),
   ];
-  // P/E bands: the workbook's two windows under All, else the chosen one
-  const peWin = (win === 'all' ? [['3y', 'last 3 years'], ['apr25', 'since Apr 2025']] : [[win, winLabel(win)]]).filter(([k]) => X.bands[k]);
+  // P/E bands: the workbook's two windows under All (or the whole series where they are not covered), else the chosen one
+  const peLabel = k => (k === '3y' ? 'last 3 years' : k === 'apr25' ? 'since Apr 2025'
+    : k === 'all' ? `all days, from ${fmtLongDate(brkValSince(X.bands.all.pe_mean))}` : winLabel(k));
+  const peWin = brkValPeWindows(win, X.bands).map(k => [k, peLabel(k)]);
   if (X.pe.length && peWin.length) {
     peWin.forEach(([k, l]) => charts.push(peP({ cls: 'rx-col-half', title: `Consolidated TTM P/E · ${l}`,
       meta: escHtml(`mean ${fmtNum(X.bands[k].pe_mean.value, 1)}× ± 1 / 2 SD ${fmtNum(X.bands[k].pe_sd.value, 1)} · ${X.bands[k].pe_mean.rule}`),

@@ -185,6 +185,25 @@ class ValuationWeights(unittest.TestCase):
         self.assertAlmostEqual(out["upside"]["bear"], (0.5 * 300 + 0.5 * 316) / 338 - 1)
 
 
+@unittest.skipUnless(NODE, "node not installed")
+class ValuationPeWindows(unittest.TestCase):
+    """Which P/E bands the Valuation tab draws (brkValPeWindows)."""
+    NAMES = ["brkValPeWindows"]
+    ANGEL = {k: {} for k in ("all", "3m", "6m", "1y", "2y", "3y", "apr25")}
+    GROWW = {k: {} for k in ("all", "3m", "6m")}   # listed Nov 2025: no 1y yet, no 3y / since Apr 2025
+
+    def test_all_shows_the_workbook_windows_where_covered(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", self.ANGEL), ["3y", "apr25"])
+
+    def test_all_falls_back_to_the_whole_series(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", self.GROWW), ["all"])
+
+    def test_a_window_shows_its_own_band_or_none(self):
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('6m', DATA)", self.GROWW), ["6m"])
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('2y', DATA)", self.GROWW), [])
+        self.assertEqual(js_eval(self.NAMES, "brkValPeWindows('all', DATA)", {}), [])
+
+
 class Markup(unittest.TestCase):
     def test_shared_state_lives_in_the_shell(self):
         src = {n: (ROOT / "dashboard" / "js" / n).read_text() for n in ("30-brokers.js", "33-brokers-pat.js", "34-brokers-valuation.js")}
