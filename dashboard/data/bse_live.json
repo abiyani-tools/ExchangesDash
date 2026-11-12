@@ -1,44 +1,44 @@
 {
-  "updated_at": "2026-11-12T04:05:25Z",
+  "updated_at": "2026-11-12T04:10:30Z",
   "sensex": {
-    "last": 82180.11,
-    "change": 300.71,
-    "pct_change": 0.37,
+    "last": 82232.2,
+    "change": 352.8,
+    "pct_change": 0.43,
     "prev_close": 81879.4,
     "open": 81762.27,
-    "high": 82200.59,
+    "high": 82243.53,
     "low": 81576.15,
-    "datetime": "12 Nov 26 | 09:35",
+    "datetime": "12 Nov 26 | 09:39",
     "status": "Open"
   },
   "market_stat": {
-    "market_cap_cr": 51350020.16,
+    "market_cap_cr": 51346335.45,
     "market_cap_usd_t": 5.47,
-    "turnover_cr": 1534.03,
+    "turnover_cr": 1719.81,
     "listed_companies": 5321,
-    "advances": 2415,
-    "declines": 835,
-    "unchanged": 208
+    "advances": 2438,
+    "declines": 883,
+    "unchanged": 215
   },
   "revenue": {
     "trade_date": "12/11/26",
-    "equity_turnover": 1572.07,
-    "derivatives_notional": 4868268.39,
-    "options_premium": 6748.19,
-    "cash_revenue": 0.1179,
-    "options_revenue": 4.3863,
+    "equity_turnover": 1790.1,
+    "derivatives_notional": 5657760.77,
+    "options_premium": 7997.28,
+    "cash_revenue": 0.1343,
+    "options_revenue": 5.1982,
     "futures_revenue": 0.0,
-    "total_revenue": 4.5042,
+    "total_revenue": 5.3325,
     "has_data": true,
     "options_pending": false,
     "source": "live"
   },
   "stock_price": {
-    "last_price": 3940.0,
+    "last_price": 3929.1,
     "previous_close": 3906.0,
     "open": 3929.0,
-    "day_high": 3953.9,
+    "day_high": 3954.2,
     "day_low": 3900.1,
-    "pct_change": 0.87
+    "pct_change": 0.59
   }
 }
