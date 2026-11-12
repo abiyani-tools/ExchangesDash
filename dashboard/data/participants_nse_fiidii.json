@@ -1,0 +1,12 @@
+{
+ "updated_at": "2026-11-12T10:01:49Z",
+ "source": {
+  "key": "nse_fiidii",
+  "name": "NSE - FII/FPI & DII trading activity (provisional)",
+  "url": "https://www.nseindia.com/api/fiidiiTradeReact and /api/fiidiiTradeNse"
+ },
+ "notes": ["Provisional, compiled by the exchanges from trading members' reports on the trading day."],
+ "days": [
+  {"date": "2026-11-11", "tables": {"NSE, BSE and MSEI": {"fields": ["Buy Value (₹ Cr)", "Sell Value (₹ Cr)", "Net Value (₹ Cr)"], "rows": {"DII": [19704.39, 28138.92, -8434.53], "FII/FPI": [30087.21, 17523.88, 12563.33]}}, "NSE": {"fields": ["Buy Value (₹ Cr)", "Sell Value (₹ Cr)", "Net Value (₹ Cr)"], "rows": {"DII": [18437.28, 25425.5, -6988.22], "FII/FPI": [27749.07, 16851.35, 10897.72]}}}, "fetched_at": "2026-11-12T10:01:49Z", "parser": 1}
+ ]
+}
