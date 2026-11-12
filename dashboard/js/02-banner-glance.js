@@ -7,12 +7,11 @@
 
 // An exchange's dashboard file at today's rates, the basis of the live polls and
 // /api/revenue: the banner's last resort, and what live figures are compared
-// with (actual close, QTD average) whatever the Fees toggle. The preloaded
-// MARKET_RAW copy serves unless it is the _eff variant, whose BSE cash is
-// priced at the calibrated rate instead.
+// with (actual close, QTD average). The preloaded MARKET_RAW copy serves when
+// there is one; otherwise the file is fetched.
 const TODAY_RATES_DATA = {};    // exchange → { json, at } at-today's-rates file
 async function todayRatesData(ex) {
-  if (MARKET_RAW[ex] && !MARKET_EFF[ex]) return MARKET_RAW[ex];
+  if (MARKET_RAW[ex]) return MARKET_RAW[ex];
   const c = TODAY_RATES_DATA[ex];
   if (c && Date.now() - c.at < DATA_MAX_AGE_MS) return c.json;
   try {
@@ -349,10 +348,16 @@ async function renderGlance() {
   const f5 = F.tail(-5, undefined, 'total'), fp5 = F.tail(-10, -5, 'total');
   const fqc = F.q(qc.label, 'total'), fqp = F.q(qp.label, 'total'), fq2 = F.q(q2.label, 'total');
 
+  // One of each weekday (latest Mon–Fri), and which weekday the last 5 repeat (hover elsewhere; phones need it shown)
+  const l5b = lastFiveBreakdown('total', [{ exchange: ex, daily_all: raw.daily_all || [] }])[0];
+  const l5Note = l5b.repeats.length
+    ? l5b.repeats.map(r => `${r.n}× ${r.day.slice(0, 3)}`).join(', ') + (l5b.missing.length ? `, no ${l5b.missing.map(d => d.slice(0, 3)).join('/')}` : '')
+    : '';
   const weekCard = glanceCard('Last 5 trading days', `
     <div class="glance-big">₹${fmtNum(l5.value, 1)}<span class="glance-unit"> Cr/day</span>${tg(f5)}</div>
     <div class="glance-row"><span>Previous 5 days</span><strong>₹${fmtNum(p5.value, 1)}${tg(fp5)}</strong></div>
-    <div class="glance-row"><span>Change</span>${glanceBadge(l5.wow, anyModelled(f5, fp5))}</div>`);
+    <div class="glance-row"><span>Change</span>${glanceBadge(l5.wow, anyModelled(f5, fp5))}</div>
+    <div class="glance-row"><span>Mon–Fri latest avg${l5Note ? `<span class="l5-glance-note">${l5Note}</span>` : ''}</span><strong>₹${fmtNum(l5b.avgLatest, 1)}</strong></div>`);
 
   const qtdCard = glanceCard(`Quarter to date · ${qc.label || '—'}`, `
     <div class="glance-big">₹${fmtNum(qc.value, 1)}<span class="glance-unit"> Cr/day</span>${tg(fqc)}</div>
@@ -370,7 +375,7 @@ async function renderGlance() {
   const dowCard = glanceCard('Day of week · latest ₹ Cr, vs last 3', `<div class="glance-dow">${strip}</div>`);
 
   const feeLine = hasFeeVariant(ex)
-    ? (MARKET_EFF[ex] ? 'Fees as charged (rates in force each day).' : 'Fees at today\'s rates.')
+    ? 'Fees at today\'s rates.'
     : 'MCX: source values.';
 
   el.innerHTML = switcher
@@ -405,7 +410,7 @@ function rebuildAll() {
     const sources = DATA.components.map(c => ({ ex: c.exchange, date: lastTradeDate(c.daily_all) }));
     (EXCHANGE_TABS[currentExchange] || []).forEach(t => { VIEW_SOURCES[t.id] = sources; });
   }
-  const common = [updateSnapshotNotice, updateFeeNotice, updateFeeToggle, buildFeeNote, buildRevenueSummary, buildLiveCards];
+  const common = [updateSnapshotNotice, buildFeeNote, buildRevenueSummary, buildLiveCards];
   const byExchange = {
     nsebse: [() => buildMarketSharePanel(['nse', 'bse']), buildMarketShareTrend, buildContractsPremium],
     all:    [() => buildMarketSharePanel(['nse', 'bse', 'mcx']), buildContractsPremium],
