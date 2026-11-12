@@ -1,0 +1,43 @@
+name: Participants source check
+
+# Read-only: reads each participant-wise source's latest data (NSE / BSE F&O participant
+# volume and OI, FII derivatives statistics, NSE and BSE category-wise turnover, the FII/DII
+# figures, NSDL's FPI reports, NSE's latest Market Pulse) through the pipeline's own fetchers
+# and parsers (scripts/participants_pipeline.py --check) and prints what it found. Nothing is
+# written or committed. Runs on demand, and on a pull request that changes this file or the
+# participants scripts; fails when a source can't be read or parsed.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/participants-sources.yml'
+      - 'scripts/participants_*.py'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Read every source
+        run: python scripts/participants_pipeline.py --check
