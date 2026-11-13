@@ -11,9 +11,9 @@
 // rows, k_* / in_*); when the reader edits an input, patRecompute() re-runs the engine's
 // recompute (the contract's algorithm, src/engine/pat_kit.py there) in the browser. Edits
 // are kept in memory (BRK_PAT_LIVE, which the Valuation tab reads) until the reader Saves
-// them (AB, 13 Nov 2026): /api/brokers-inputs writes them, with the Save password, as the
-// broker's sb_assumptions rows, which the engine publishes with from its next run and this
-// tab shows again on every visit.
+// them (AB, 13 Nov 2026; no password, the last Save wins): /api/brokers-inputs writes them as
+// the broker's sb_assumptions rows, which the engine publishes with from its next run and
+// this tab shows again on every visit.
 
 // Section headers in the P&L tables, before the first line of each block
 const BRK_PAT_SECTIONS = {
@@ -400,8 +400,6 @@ function brkPatPredictor(el, pat, summary, kit) {
           <input id="brkPatToday-${BRK_BROKER.view}" class="rx-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="today"><div class="rx-tags"><span class="rx-foot">%</span></div></div>
         <p class="rx-foot">Broking and MTF QoQ growth: in the build-up · P/E: in the PE row. EPS = PAT ÷ <span data-pv="${escHtml(fy2)}|shares|" data-f="rs2"></span> Cr shares = ₹<span data-pv="${escHtml(fy2)}|eps|base" data-f="rs2"></span>; close ₹<span data-pv="${escHtml(fy2)}|close|" data-f="rs2"></span>.</p>
         <form class="brk-pat-save" data-pat-save-form>
-          <div class="rx-field"><label for="brkPatPw-${BRK_BROKER.view}">Save password</label>
-            <input id="brkPatPw-${BRK_BROKER.view}" class="rx-in" type="password" autocomplete="current-password" data-pat-pw></div>
           <div class="brk-pat-btns">
             <button type="submit" class="rx-btn brk-pat-primary" data-pat-save>Save inputs</button>
             <button type="button" class="rx-btn" data-pat-reset>Reset</button>
@@ -449,7 +447,7 @@ function brkPatPredictor(el, pat, summary, kit) {
 
   const checkNote = locked ? rxAlert(`<strong>The inputs are switched off: recomputing at the published defaults does not give the published figures.</strong> ${bad.slice(0, 4).map(x => `${escHtml(x.key.replace(/\|$/, '').replace(/\|/g, ' · '))}: published ${fmtNum(x.published, 4)}, recomputed ${fmtNum(x.recomputed, 4)}`).join('; ')}${bad.length > 4 ? `; and ${bad.length - 4} more` : ''}. The figures below are the engine's as published.`) : '';
   el.innerHTML = `<div class="brk-wrap">${summary.run ? brkRunBar({ legend: false }) : ''}<div class="rx brk-pat">
-    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the broking or MTF QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules. Save inputs keeps them: the page opens with them for everyone, and the engine publishes with them from its next run.'}`, 'info')}
+    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the broking or MTF QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules. Save inputs keeps them for everyone (the last Save wins): the page opens with them, and the engine publishes with them from its next run.'}`, 'info')}
     ${checkNote}
     ${buildup}
     ${predictor}
@@ -533,7 +531,6 @@ function brkPatPredictor(el, pat, summary, kit) {
     reset.textContent = saved ? 'Reset to saved' : 'Reset to published';
     reset.disabled = locked || !unsaved;
     root.querySelector('[data-pat-save]').disabled = locked || !unsaved;
-    root.querySelector('[data-pat-pw]').disabled = locked;
     root.querySelector('[data-pat-state]').textContent = locked ? 'Inputs switched off.'
       : edited ? `Showing ${unsaved ? 'your inputs' : 'the saved inputs'} (${growthText(st)}); recalculated lines are tinted. The Valuation tab's ADR method uses them too.`
         : 'Showing the published figures.';
@@ -581,13 +578,13 @@ function brkPatPredictor(el, pat, summary, kit) {
   });
   root.querySelector('[data-pat-save-form]').addEventListener('submit', async e => {
     e.preventDefault();
-    const btn = root.querySelector('[data-pat-save]'), pw = root.querySelector('[data-pat-pw]');
+    const btn = root.querySelector('[data-pat-save]');
     btn.disabled = true;
     btn.textContent = 'Saving…';
-    const r = await brkPatSave(broker, { g: st.g, gm: st.gm, pe: [...st.pe], disc: st.disc, today: st.today }, pw.value);
+    const r = await brkPatSave(broker, { g: st.g, gm: st.gm, pe: [...st.pe], disc: st.disc, today: st.today });
     btn.textContent = 'Save inputs';
     if (r.ok) { saveMsg = { ok: true }; applySaved(r.inputs); }
-    else { saveMsg = { ok: false, text: `Not saved: ${r.error}` }; paint(); if (/password/i.test(r.error)) pw.focus(); }
+    else { saveMsg = { ok: false, text: `Not saved: ${r.error}` }; paint(); }
   });
 }
 
@@ -607,11 +604,10 @@ async function brkPatLoadSaved(broker) {
   } catch { return null; }
 }
 
-// Save: { ok: true, inputs } or { ok: false, error }
-async function brkPatSave(broker, inputs, password) {
-  if (!password) return { ok: false, error: 'enter the Save password' };
+// Save (no password; the last Save wins): { ok: true, inputs } or { ok: false, error }
+async function brkPatSave(broker, inputs) {
   try {
-    const res = await fetch('/api/brokers-inputs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ broker, inputs, password }) });
+    const res = await fetch('/api/brokers-inputs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ broker, inputs }) });
     const j = await res.json().catch(() => ({}));
     if (res.ok && j.ok) return { ok: true, inputs: j.inputs };
     return { ok: false, error: j.error || `the server answered ${res.status}` };

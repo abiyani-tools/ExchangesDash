@@ -4,16 +4,18 @@
  * The PAT Predictor's saved inputs (AB, 13 Nov 2026): QoQ growth of broking ADR and of MTF ADR,
  * P/E per scenario and the two discounts, kept as the broker's sb_assumptions rows in the
  * brokers-dashboard Supabase project, which its engine reads on every run. Both calls go to
- * that project's own functions (migration 20261113_sb_pat_input_saves.sql in
- * abiyani-tools/brokersdashboard) with the publishable key already used by /api/brokers
- * (BROKERS_SUPABASE_KEY); the password check, the rate limit, the value ranges and the log of
- * every Save are in the database, so this function holds no secret of its own.
+ * that project's own functions (migrations 20261113_sb_pat_input_saves.sql and
+ * 20261113_sb_pat_save_no_password.sql in abiyani-tools/brokersdashboard) with the publishable
+ * key already used by /api/brokers (BROKERS_SUPABASE_KEY), so this function holds no secret of
+ * its own. No password (AB, 13 Nov 2026): whoever saves last sets the inputs; the value ranges,
+ * a guard of 30 Saves a minute and the log of every Save (with the values it replaced) are in
+ * the database.
  *
  *   GET  /api/brokers-inputs?broker=GROWW
  *        → { inputs: { g, gm, gm_own, pe: [bear, base, bull], disc, today, saved_at } }
  *          (inputs: null when the database functions are not there yet)
- *   POST /api/brokers-inputs  { broker, inputs: { g, gm, pe, disc, today }, password }
- *        → { ok: true, inputs } or { ok: false, error } (400 / 401 / 429 by the error)
+ *   POST /api/brokers-inputs  { broker, inputs: { g, gm, pe, disc, today } }
+ *        → { ok: true, inputs } or { ok: false, error } (400, or 429 for too many saves)
  *
  * Never cached (dashboard/vercel.json: no-store), so a Save shows on the next load.
  */
@@ -43,10 +45,9 @@ function clean(x) {
     disc: num(x.disc), today: num(x.today), saved_at: x.saved_at || null };
 }
 
-// The error's HTTP status: wrong password 401, rate limit 429, anything else the reader can fix 400
+// The error's HTTP status: too many saves 429, anything else the reader can fix 400
 function statusOf(error) {
-  if (/too many/i.test(error)) return 429;
-  return /password/i.test(error) && !/not set up/i.test(error) ? 401 : 400;
+  return /too many/i.test(error) ? 429 : 400;
 }
 
 module.exports = async function handler(req, res) {
@@ -69,9 +70,7 @@ module.exports = async function handler(req, res) {
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
       const broker = String(body?.broker || '').toUpperCase();
       const inp = body?.inputs || {};
-      const password = typeof body?.password === 'string' ? body.password : '';
       if (!BROKER.test(broker)) return res.status(400).json({ ok: false, error: 'Invalid broker' });
-      if (!password) return res.status(401).json({ ok: false, error: 'Enter the Save password' });
       const inputs = { g: num(inp.g), gm: num(inp.gm), pe: Array.isArray(inp.pe) ? inp.pe.map(Number) : null, disc: num(inp.disc), today: num(inp.today) };
       if ([inputs.g, inputs.gm, inputs.disc, inputs.today].some(v => v == null || !isFinite(v))
         || !inputs.pe || inputs.pe.length !== 3 || !inputs.pe.every(isFinite)) {
@@ -79,7 +78,7 @@ module.exports = async function handler(req, res) {
       }
       let out;
       try {
-        out = await rpc('sb_save_pat_inputs', { p_broker: broker, p_inputs: inputs, p_password: password });
+        out = await rpc('sb_save_pat_inputs', { p_broker: broker, p_inputs: inputs });
       } catch (err) {
         if (err.supabaseStatus === 404) return res.status(503).json({ ok: false, error: 'Saving is not set up in the database yet' });
         throw err;

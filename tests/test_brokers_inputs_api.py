@@ -1,6 +1,6 @@
 """/api/brokers-inputs (dashboard/api/brokers-inputs.js): the PAT Predictor's saved inputs. GET reads them through the
-brokers-dashboard project's sb_pat_saved_inputs, POST saves through sb_save_pat_inputs; the password check, rate
-limit and ranges live in the database. Run in Node with fetch stubbed: the requests the handler makes and the
+brokers-dashboard project's sb_pat_saved_inputs, POST saves through sb_save_pat_inputs (no password: the last Save
+wins); the ranges and the guard of 30 saves a minute live in the database. Run in Node with fetch stubbed: the requests the handler makes and the
 status / body it answers with."""
 
 import json
@@ -55,27 +55,26 @@ class BrokersInputs(unittest.TestCase):
 
     def test_post_saves_and_returns_the_inputs(self):
         inputs = {"g": 0.04, "gm": 0.127, "pe": [44.3, 50, 55.7], "disc": 0.2, "today": 0.1}
-        code, body, calls = call("POST", body={"broker": "GROWW", "inputs": inputs, "password": "pw"},
-                                 rpc={"ok": True, "saved": SAVED})
+        code, body, calls = call("POST", body={"broker": "GROWW", "inputs": inputs}, rpc={"ok": True, "saved": SAVED})
         self.assertEqual(code, 200)
         self.assertTrue(body["ok"])
         self.assertEqual(body["inputs"]["saved_at"], SAVED["saved_at"])
         self.assertTrue(calls[0]["url"].endswith("/rest/v1/rpc/sb_save_pat_inputs"))
-        self.assertEqual(calls[0]["body"], {"p_broker": "GROWW", "p_inputs": inputs, "p_password": "pw"})
+        self.assertEqual(calls[0]["body"], {"p_broker": "GROWW", "p_inputs": inputs})
 
     def test_post_errors_from_the_database(self):
-        for error, want in (("Wrong password", 401), ("Too many wrong passwords: try again in 15 minutes", 429),
-                            ("Values out of range: …", 400), ("Saving is not set up yet: the password has not been set", 400)):
+        for error, want in (("Too many saves in the last minute: try again shortly", 429),
+                            ("Values out of range: …", 400), ("unknown broker", 400)):
             code, body, _ = call("POST", body={"broker": "GROWW", "inputs": {"g": 0, "gm": 0, "pe": [1, 2, 3], "disc": 0,
-                                                                             "today": 0}, "password": "x"},
+                                                                             "today": 0}},
                                  rpc={"ok": False, "error": error})
             self.assertEqual((code, body["ok"], body["error"]), (want, False, error))
 
     def test_post_checks_before_calling_the_database(self):
-        code, body, calls = call("POST", body={"broker": "GROWW", "inputs": {"g": 0.04}, "password": "pw"}, rpc={})
+        code, body, calls = call("POST", body={"broker": "GROWW", "inputs": {"g": 0.04}}, rpc={})
+        self.assertEqual((code, body["error"], calls), (400, "Every input needs a number", []))
+        code, body, calls = call("POST", body={"broker": "no such!", "inputs": {}}, rpc={})
         self.assertEqual((code, calls), (400, []))
-        code, body, calls = call("POST", body={"broker": "GROWW", "inputs": {}, "password": ""}, rpc={})
-        self.assertEqual((code, body["error"], calls), (401, "Enter the Save password", []))
 
     def test_other_methods(self):
         code, _, calls = call("DELETE", rpc={})
