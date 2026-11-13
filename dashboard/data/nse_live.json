@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-13T03:25:28Z",
+  "updated_at": "2026-11-13T03:30:26Z",
   "market_status": {
     "marketState": [
       {
@@ -10,7 +10,7 @@
         "last": 25299.35,
         "variation": 44.29999999999927,
         "percentChange": 0.18,
-        "marketStatusMessage": "Normal Market has Closed"
+        "marketStatusMessage": "Market in Pre-Open session"
       },
       {
         "market": "Currency",
@@ -20,7 +20,7 @@
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Closed"
+        "marketStatusMessage": "Market is Open"
       },
       {
         "market": "Commodity",
@@ -30,7 +30,7 @@
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Closed"
+        "marketStatusMessage": "Market is Open"
       },
       {
         "market": "Debt",
@@ -40,7 +40,7 @@
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Closed"
+        "marketStatusMessage": "Market is Open"
       },
       {
         "index": "NIFTY50 USD",
@@ -57,11 +57,11 @@
         "last": "94.1400",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Closed",
+        "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "12-Nov-2026 17:00",
-        "tradeDateFormatted": "12-Nov-2026 17:00",
+        "updated_time": "13-Nov-2026 09:00",
+        "tradeDateFormatted": "13-Nov-2026 09:00",
         "slickclass": "slick-item"
       }
     ],
@@ -88,16 +88,16 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 2233,
-      "DAYCHANGE": -69.5,
+      "CONTRACTSTRADED": 2295,
+      "DAYCHANGE": -66,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
-      "LASTPRICE": 25205,
+      "LASTPRICE": 25208.5,
       "OPTIONTYPE": "-",
-      "PERCHANGE": -0.27,
+      "PERCHANGE": -0.26,
       "STRIKEPRICE": 0,
       "SYMBOL": "NIFTY",
-      "TIMESTMP": "13-Nov-2026 08:53",
+      "TIMESTMP": "13-Nov-2026 09:00",
       "id": "1/NIFTYFUTIDX23-Nov-2026--"
     },
     "niftyusd": {
