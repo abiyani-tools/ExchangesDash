@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-11-12T20:21:38Z",
+ "updated_at": "2026-11-13T04:09:28Z",
  "notes": ["Monthly views of the participants stores (scripts/participants_report.py). Aggregation: mean = average per day of the month, sum = month total, last = month end.", "Market Pulse categories are aliased across editions (FPI → Foreign Investors, DII → DIIs, PRO → Prop, Individual investors → Individuals)."],
  "views": {
   "nse_fo_vol": {
@@ -7,6 +7,7 @@
    "source": "nse_fo_vol",
    "aggregation": "mean",
    "unit": "contracts",
+   "total_row": "TOTAL",
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -417,6 +418,7 @@
    "source": "nse_fo_oi",
    "aggregation": "mean",
    "unit": "contracts",
+   "total_row": "TOTAL",
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -827,6 +829,7 @@
    "source": "bse_fo_vol",
    "aggregation": "mean",
    "unit": "contracts",
+   "total_row": "Total",
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -1237,6 +1240,7 @@
    "source": "bse_fo_oi",
    "aggregation": "mean",
    "unit": "contracts",
+   "total_row": "Total",
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -1647,6 +1651,7 @@
    "source": "nse_cm_cat",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -2287,6 +2292,7 @@
    "source": "nse_cm_cat",
    "aggregation": "sum",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -2631,6 +2637,7 @@
    "source": "nse_fo_cat",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 16,
     "2023-11": 21,
@@ -3211,6 +3218,7 @@
    "source": "bse_fo_cat",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -3511,6 +3519,7 @@
    "source": "nse_fii_fo",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -3720,6 +3729,7 @@
    "source": "nse_fii_fo",
    "aggregation": "last",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 21,
@@ -3929,6 +3939,7 @@
    "source": "nsdl_fpi",
    "aggregation": "sum",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 20,
@@ -4267,6 +4278,7 @@
    "source": "nsdl_fpi",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2023-10": 20,
     "2023-11": 20,
@@ -4605,6 +4617,7 @@
    "source": "nse_fiidii",
    "aggregation": "sum",
    "unit": "₹ Cr",
+   "total_row": null,
    "days": {
     "2026-11": 2
    },
@@ -4623,6 +4636,7 @@
    "source": "bse_cash_cat",
    "aggregation": "mean",
    "unit": "₹ Cr",
+   "total_row": "Total",
    "days": {
     "2026-11": 4
    },
