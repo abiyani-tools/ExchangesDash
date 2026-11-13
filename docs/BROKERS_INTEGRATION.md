@@ -70,14 +70,21 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   `dashboard/vercel.json`, and never add cache-busting query parameters to `/api/*` URLs.
 - **Numbers:** the front end shows what the engine published (`sb_summary_cells`,
   `sb_daily_revenue`, `sb_calibration`). It never re-computes ADR. One exception: when the reader
-  edits the PAT Predictor's inputs (QoQ ADR growth, P/E, discount rates), `patRecompute` in
+  edits the PAT Predictor's inputs (QoQ growth of broking ADR and of MTF ADR, two inputs since 13 Nov 2026; P/E;
+  discount rates), `patRecompute` in
   `33-brokers-pat.js` re-runs the engine's PAT recompute (a port of its `src/engine/pat_kit.py`)
   from the kit rows the engine publishes in `sb_pat_lines`, and the Valuation tab re-weights its ADR
   method with it; at the defaults it must reproduce the published lines (checked on load), and
   `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The Valuation
   tab's three method weights are inputs as well: the net value and upside are re-weighted on the page with the reader's
   weights (`brkValScale`, scaled to add up to 100 %, then the engine's Σ weight × price, `brkValReweight`); the
-  method prices themselves stay the engine's. These edits are never saved. The summary view also returns each
+  method prices themselves stay the engine's. The Valuation weights are never saved. The PAT Predictor's inputs are
+  saved with its Save inputs button (AB, 13 Nov 2026): `dashboard/api/brokers-inputs.js` (GET reads, POST saves,
+  `no-store`) calls the brokers-dashboard project's `sb_pat_saved_inputs` / `sb_save_pat_inputs` functions with the
+  same publishable key as `/api/brokers`; the password check (a bcrypt hash in that project's `private` schema), the
+  rate limit, the value ranges and the log of every Save (`sb_input_saves`) are in that database, so the function
+  holds no secret. A Save writes the broker's `sb_assumptions` rows, which the engine publishes with from its next run;
+  the tab opens with the saved inputs until then. The summary view also returns each
   panel's last data day (`through`); the run bar shows MTF's, and a panel whose data ends before the
   run's as-of date is flagged (the engine has published runs whose MTF stopped days early). Use the Indian FY (Apr–Mar),
   ₹ Cr, and `quarterSortKey` to sort quarters.
