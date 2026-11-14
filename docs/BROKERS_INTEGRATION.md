@@ -78,13 +78,7 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The Valuation
   tab's three method weights are inputs as well: the net value and upside are re-weighted on the page with the reader's
   weights (`brkValScale`, scaled to add up to 100 %, then the engine's Σ weight × price, `brkValReweight`); the
-  method prices themselves stay the engine's. The Valuation weights are never saved. The PAT Predictor's inputs are
-  saved with its Save inputs button (AB, 13 Nov 2026): `dashboard/api/brokers-inputs.js` (GET reads, POST saves,
-  `no-store`) calls the brokers-dashboard project's `sb_pat_saved_inputs` / `sb_save_pat_inputs` functions with the
-  same publishable key as `/api/brokers`. There is no password: whoever saves last sets the inputs. The value ranges, a
-  guard of 30 Saves a minute and the log of every Save with the values it replaced (`sb_input_saves`) are in that
-  database, so the function holds no secret. A Save writes the broker's `sb_assumptions` rows, which the engine publishes with from its next run;
-  the tab opens with the saved inputs until then. The summary view also returns each
+  method prices themselves stay the engine's. These edits are never saved. The summary view also returns each
   panel's last data day (`through`); the run bar shows MTF's, and a panel whose data ends before the
   run's as-of date is flagged (the engine has published runs whose MTF stopped days early). Use the Indian FY (Apr–Mar),
   ₹ Cr, and `quarterSortKey` to sort quarters.

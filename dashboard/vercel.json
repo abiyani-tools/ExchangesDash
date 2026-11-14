@@ -61,15 +61,6 @@
       ]
     },
     {
-      "source": "/api/brokers-inputs",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
       "source": "/api/trigger-live-polls",
       "headers": [
         {

@@ -10,10 +10,7 @@
 // P&L. The engine publishes the inputs' defaults and the constants behind them (`inputs`
 // rows, k_* / in_*); when the reader edits an input, patRecompute() re-runs the engine's
 // recompute (the contract's algorithm, src/engine/pat_kit.py there) in the browser. Edits
-// are kept in memory (BRK_PAT_LIVE, which the Valuation tab reads) until the reader Saves
-// them (AB, 13 Nov 2026; no password, the last Save wins): /api/brokers-inputs writes them as
-// the broker's sb_assumptions rows, which the engine publishes with from its next run and
-// this tab shows again on every visit.
+// are kept in memory only (BRK_PAT_LIVE, which the Valuation tab reads), never saved.
 
 // Section headers in the P&L tables, before the first line of each block
 const BRK_PAT_SECTIONS = {
@@ -331,8 +328,6 @@ function brkPatPredictor(el, pat, summary, kit) {
   if (!live || live.run !== runId || locked) live = null;
   const copy = x => ({ g: x.g, gm: x.gm ?? x.g, pe: [...x.pe], disc: x.disc, today: x.today });
   const st = live ? copy(live.inp) : copy(D);
-  // the saved inputs (sb_assumptions, /api/brokers-inputs): null until read, or when there are none
-  let saved = BRK_PAT_SAVED[broker] || null;
   const fy1 = kit.fy1, fy2 = kit.fy2, s1 = brkPatShort(fy1), s2 = brkPatShort(fy2);
   const pl = brkPatIndex(rows.filter(r => !brkPatHidden(r.line)));
   const regimeOf = col => brkPatRegime(pl, col);
@@ -399,14 +394,8 @@ function brkPatPredictor(el, pat, summary, kit) {
         <div class="rx-field"><label for="brkPatToday-${BRK_BROKER.view}">Discount ${escHtml(s1)} → today</label>
           <input id="brkPatToday-${BRK_BROKER.view}" class="rx-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="today"><div class="rx-tags"><span class="rx-foot">%</span></div></div>
         <p class="rx-foot">Broking and MTF QoQ growth: in the build-up · P/E: in the PE row. EPS = PAT ÷ <span data-pv="${escHtml(fy2)}|shares|" data-f="rs2"></span> Cr shares = ₹<span data-pv="${escHtml(fy2)}|eps|base" data-f="rs2"></span>; close ₹<span data-pv="${escHtml(fy2)}|close|" data-f="rs2"></span>.</p>
-        <form class="brk-pat-save" data-pat-save-form>
-          <div class="brk-pat-btns">
-            <button type="submit" class="rx-btn brk-pat-primary" data-pat-save>Save inputs</button>
-            <button type="button" class="rx-btn" data-pat-reset>Reset</button>
-          </div>
-        </form>
+        <button type="button" class="rx-btn" data-pat-reset>Reset to published</button>
         <p class="rx-foot brk-pat-state" data-pat-state role="status" aria-live="polite"></p>
-        <p class="rx-foot brk-pat-saved" data-pat-saved role="status" aria-live="polite"></p>
       </aside></div>`,
     foot: `Operating revenue = ${escHtml(s2)} Avg ADR × trading days, the same figure as broking + MTF in the 3-year P&L. Total costs follow the P&L's cost build-up (finance cost on the MTF book, fees or other expenses as a share of broking). Upside is the target today vs the close.`,
   });
@@ -447,7 +436,7 @@ function brkPatPredictor(el, pat, summary, kit) {
 
   const checkNote = locked ? rxAlert(`<strong>The inputs are switched off: recomputing at the published defaults does not give the published figures.</strong> ${bad.slice(0, 4).map(x => `${escHtml(x.key.replace(/\|$/, '').replace(/\|/g, ' · '))}: published ${fmtNum(x.published, 4)}, recomputed ${fmtNum(x.recomputed, 4)}`).join('; ')}${bad.length > 4 ? `; and ${bad.length - 4} more` : ''}. The figures below are the engine's as published.`) : '';
   el.innerHTML = `<div class="brk-wrap">${summary.run ? brkRunBar({ legend: false }) : ''}<div class="rx brk-pat">
-    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the broking or MTF QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules. Save inputs keeps them for everyone (the last Save wins): the page opens with them, and the engine publishes with them from its next run.'}`, 'info')}
+    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the broking or MTF QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules. Your edits stay on this page and are not saved.'}`, 'info')}
     ${checkNote}
     ${buildup}
     ${predictor}
@@ -468,8 +457,6 @@ function brkPatPredictor(el, pat, summary, kit) {
   const pct1 = x => `${fmtNum(x * 100, 1)} %`;
   const growthText = o => `broking ${pct1(o.g)} and MTF ${pct1(o.gm)} QoQ`;
   const inputsText = o => `${growthText(o)}, P/E ${o.pe.map(x => fmtNum(x, 1)).join(' / ')}×, discounts ${pct1(o.disc)} and ${pct1(o.today)}`;
-  const savedWhen = iso => (iso ? new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' IST' : '');
-  let saveMsg = null;                              // { ok, text } of the last Save on this page
 
   const paint = () => {
     const edited = !locked && isEdited();
@@ -525,21 +512,10 @@ function brkPatPredictor(el, pat, summary, kit) {
       i.disabled = locked;
       if (locked) i.title = 'Switched off: the published figures could not be reproduced (see the note above)';
     });
-    // Save and Reset: the base is the saved inputs, else the published defaults
-    const base = saved || D, unsaved = !sameInp(st, base);
-    const reset = root.querySelector('[data-pat-reset]');
-    reset.textContent = saved ? 'Reset to saved' : 'Reset to published';
-    reset.disabled = locked || !unsaved;
-    root.querySelector('[data-pat-save]').disabled = locked || !unsaved;
+    root.querySelector('[data-pat-reset]').disabled = locked || !edited;
     root.querySelector('[data-pat-state]').textContent = locked ? 'Inputs switched off.'
-      : edited ? `Showing ${unsaved ? 'your inputs' : 'the saved inputs'} (${growthText(st)}); recalculated lines are tinted. The Valuation tab's ADR method uses them too.`
+      : edited ? `Showing your inputs (${growthText(st)}); recalculated lines are tinted. The Valuation tab's ADR method uses them too.`
         : 'Showing the published figures.';
-    const sv = root.querySelector('[data-pat-saved]');
-    sv.classList.toggle('is-ok', !!saveMsg?.ok);
-    sv.classList.toggle('is-err', !!saveMsg && !saveMsg.ok);
-    sv.textContent = saveMsg && !saveMsg.ok ? saveMsg.text
-      : saved ? `${saveMsg?.ok ? 'Saved' : 'Saved inputs'}: ${inputsText(saved)}${saved.saved_at ? ` (${savedWhen(saved.saved_at)})` : ''}.${sameInp(saved, D) ? '' : ' The engine publishes with them from its next run.'}${unsaved ? ' You have unsaved changes.' : ''}`
-        : '';
     // the Valuation tab's ADR method reads this
     if (edited) BRK_PAT_LIVE[broker] = { run: runId, inp: { ...st, pe: [...st.pe] }, edited: true,
       targets: Object.fromEntries(BRK_PAT_SCENARIOS.map(([s]) => [s, re[`${fy2}|target_today|${s}`]])),
@@ -549,14 +525,6 @@ function brkPatPredictor(el, pat, summary, kit) {
   setInputs();
   paint();
   if (locked) return;
-  // the saved inputs: open with them unless the reader has already edited this run's inputs on this page
-  const applySaved = s => {
-    saved = s;
-    BRK_PAT_SAVED[broker] = s;
-    if (!live && s && root.isConnected) { Object.assign(st, { g: s.g, gm: s.gm, pe: [...s.pe], disc: s.disc, today: s.today }); setInputs(); }
-    if (root.isConnected) paint();
-  };
-  brkPatLoadSaved(broker).then(s => { if (s && BRK_BROKER.id === broker) applySaved(s); });
   root.addEventListener('input', e => {
     const i = e.target.closest('[data-pin]');
     if (!i) return;
@@ -565,53 +533,13 @@ function brkPatPredictor(el, pat, summary, kit) {
     const k = i.dataset.pin;
     if (k === 'g' || k === 'gm' || k === 'disc' || k === 'today') { if (x <= -100) return; st[k] = x / 100; }
     else st.pe[+k.slice(2)] = x;
-    live = true;                                   // the reader's own edit: a late read of the saved inputs keeps it
-    saveMsg = null;
     paint();
   });
   root.querySelector('[data-pat-reset]').addEventListener('click', () => {
-    const base = saved || D;
-    Object.assign(st, { g: base.g, gm: base.gm, pe: [...base.pe], disc: base.disc, today: base.today });
-    saveMsg = null;
+    Object.assign(st, copy(D));
     setInputs();
     paint();
   });
-  root.querySelector('[data-pat-save-form]').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = root.querySelector('[data-pat-save]');
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-    const r = await brkPatSave(broker, { g: st.g, gm: st.gm, pe: [...st.pe], disc: st.disc, today: st.today });
-    btn.textContent = 'Save inputs';
-    if (r.ok) { saveMsg = { ok: true }; applySaved(r.inputs); }
-    else { saveMsg = { ok: false, text: `Not saved: ${r.error}` }; paint(); }
-  });
-}
-
-// ── Saved inputs (/api/brokers-inputs) ───────────────────────────────────────
-// broker → { g, gm, gm_own, pe, disc, today, saved_at } once read (null: none, or the API is not there yet)
-const BRK_PAT_SAVED = {};
-
-async function brkPatLoadSaved(broker) {
-  if (broker in BRK_PAT_SAVED) return BRK_PAT_SAVED[broker];
-  try {
-    const res = await fetch(`/api/brokers-inputs?broker=${encodeURIComponent(broker)}`);
-    if (!res.ok) return null;
-    const j = await res.json();
-    const s = j.inputs && j.inputs.g != null && Array.isArray(j.inputs.pe) && j.inputs.pe.length === 3 ? j.inputs : null;
-    BRK_PAT_SAVED[broker] = s;
-    return s;
-  } catch { return null; }
-}
-
-// Save (no password; the last Save wins): { ok: true, inputs } or { ok: false, error }
-async function brkPatSave(broker, inputs) {
-  try {
-    const res = await fetch('/api/brokers-inputs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ broker, inputs }) });
-    const j = await res.json().catch(() => ({}));
-    if (res.ok && j.ok) return { ok: true, inputs: j.inputs };
-    return { ok: false, error: j.error || `the server answered ${res.status}` };
-  } catch (err) { return { ok: false, error: err.message }; }
 }
 
 // ── The earlier layout, for a run published before the build-up rows ────────
