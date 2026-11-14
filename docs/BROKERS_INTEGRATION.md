@@ -70,7 +70,8 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   `dashboard/vercel.json`, and never add cache-busting query parameters to `/api/*` URLs.
 - **Numbers:** the front end shows what the engine published (`sb_summary_cells`,
   `sb_daily_revenue`, `sb_calibration`). It never re-computes ADR. One exception: when the reader
-  edits the PAT Predictor's inputs (QoQ ADR growth, P/E, discount rates), `patRecompute` in
+  edits the PAT Predictor's inputs (QoQ growth of broking ADR and of MTF ADR, two inputs since 13 Nov 2026; P/E;
+  discount rates), `patRecompute` in
   `33-brokers-pat.js` re-runs the engine's PAT recompute (a port of its `src/engine/pat_kit.py`)
   from the kit rows the engine publishes in `sb_pat_lines`, and the Valuation tab re-weights its ADR
   method with it; at the defaults it must reproduce the published lines (checked on load), and

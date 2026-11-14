@@ -4,13 +4,13 @@
 // the consolidated results; later quarters, FY 2027 and FY 2028 are projected from
 // the engine's ADR with the rule each row carries.
 //
-// Layout (AB, 10 Nov 2026): the ADR build-up (current quarter's consolidated ADR ×
-// (1 + QoQ growth) a quarter), the FY 2028 PAT predictor (Bear / Base / Bull, which
-// differ only in P/E), the FY27 quarterly P&L and the 3-year P&L. The engine publishes
-// the inputs' defaults and the constants behind them (`inputs` rows, k_* / in_*); when
-// the reader edits an input, patRecompute() re-runs the engine's recompute (the
-// contract's algorithm, src/engine/pat_kit.py there) in the browser. Edits are kept in
-// memory only (BRK_PAT_LIVE, which the Valuation tab reads), never saved.
+// Layout (AB, 10 Nov 2026): the ADR build-up (the current quarter's broking and MTF ADR,
+// each × (1 + its own QoQ growth) a quarter since 13 Nov 2026), the FY 2028 PAT predictor
+// (Bear / Base / Bull, which differ only in P/E), the FY27 quarterly P&L and the 3-year
+// P&L. The engine publishes the inputs' defaults and the constants behind them (`inputs`
+// rows, k_* / in_*); when the reader edits an input, patRecompute() re-runs the engine's
+// recompute (the contract's algorithm, src/engine/pat_kit.py there) in the browser. Edits
+// are kept in memory only (BRK_PAT_LIVE, which the Valuation tab reads), never saved.
 
 // Section headers in the P&L tables, before the first line of each block
 const BRK_PAT_SECTIONS = {
@@ -100,17 +100,20 @@ function brkPatKit(rows) {
   return { kit: {
     broker, fy1, fy2, fy1q, fy2q, proj, buildup, step, rem, sofar, pub, inputs,
     shares: pub[fy2].shares, close: pub[fy2].close, fy0: pub[`FY ${+fy1.slice(3) - 1}`] ? `FY ${+fy1.slice(3) - 1}` : null,
-    defaults: { g: inputs.in_qoq_growth, pe: BRK_PAT_SCENARIOS.map(([s]) => pe[s]), disc: inputs.in_discount_fwd, today: inputs.in_discount_today },
+    // gm: MTF's own QoQ growth (in_mtf_qoq_growth, 13 Nov 2026); a run published before it grew MTF at the broking rate
+    defaults: { g: inputs.in_qoq_growth, gm: inputs.in_mtf_qoq_growth ?? inputs.in_qoq_growth,
+      pe: BRK_PAT_SCENARIOS.map(([s]) => pe[s]), disc: inputs.in_discount_fwd, today: inputs.in_discount_today },
   } };
 }
 
 // ── The recompute (CONTRACT.md "Recompute", ported line by line) ─────────────
-// kit: brkPatKit(rows).kit; g: QoQ ADR growth; pe: [bear, base, bull]; disc: FY28 → FY27;
-// today: FY27 → today. Returns { "<period>|<line>|<scenario>": value } for every line it
-// computes (the projected quarters, FY27, FY28, the build-up, the top block and the
-// valuation of FY28 and FY27).
-function patRecompute(kit, g, pe, disc, today) {
+// kit: brkPatKit(rows).kit; g: QoQ growth of broking (and cash) ADR; pe: [bear, base, bull];
+// disc: FY28 → FY27; today: FY27 → today; gm: QoQ growth of MTF ADR (omitted: the kit's
+// default). Returns { "<period>|<line>|<scenario>": value } for every line it computes (the
+// projected quarters, FY27, FY28, the build-up, the top block and the valuation of FY28 and FY27).
+function patRecompute(kit, g, pe, disc, today, gm) {
   const b = kit.broker, I = kit.inputs, P = kit.pub, out = {};
+  if (gm == null) gm = kit.defaults.gm;
   const REV = BRK_PAT_REV[b], COST = BRK_PAT_COST[b], sum = (L, ks) => ks.reduce((a, k) => a + L[k], 0);
   const newBorrowing = (book, prevBook, retained) => { const growth = book - prevBook; return growth <= 0 ? growth : Math.max(growth - retained, 0); };
   const b0 = I.k_adr_broking0, m0 = I.k_adr_mtf0, c0 = I.k_adr_cash0, y = I.k_mtf_yield;
@@ -118,9 +121,9 @@ function patRecompute(kit, g, pe, disc, today) {
   let prev = { finance: I.k_prev_finance, mtf_book: I.k_prev_mtf_book, pat: I.k_prev_pat, broking: I.k_prev_broking, float: I.k_prev_float };
   const Q = {};
   kit.proj.forEach(q => {
-    const f = (1 + g) ** kit.step[q], s = kit.sofar[q], rem = kit.rem[q], L = {};
+    const f = (1 + g) ** kit.step[q], fm = (1 + gm) ** kit.step[q], s = kit.sofar[q], rem = kit.rem[q], L = {};
     L.broking = s.broking + rem * b0 * f;
-    L.mtf = s.mtf + rem * m0 * f;
+    L.mtf = s.mtf + rem * m0 * fm;
     const cash = s.cash + rem * c0 * f;
     if (b === 'ANGELONE') L.depository = I.k_dep_share_of_cash * cash;
     else L.float = prev.float * L.broking / prev.broking;
@@ -146,7 +149,8 @@ function patRecompute(kit, g, pe, disc, today) {
   F1.pat_margin = F1.pat / F1.total_income;
   // FY28: the four quarters continue the path; days d28
   const path = kit.fy2q.reduce((a, q) => a + (1 + g) ** kit.step[q], 0) / 4;
-  const b28 = b0 * path, m28 = m0 * path, d28 = I.k_fy28_days, gd = I.k_dist_growth_fy28, gt = I.k_treasury_growth_fy28;
+  const pathM = kit.fy2q.reduce((a, q) => a + (1 + gm) ** kit.step[q], 0) / 4;
+  const b28 = b0 * path, m28 = m0 * pathM, d28 = I.k_fy28_days, gd = I.k_dist_growth_fy28, gt = I.k_treasury_growth_fy28;
   const F2 = { adr_broking: b28, adr_mtf: m28, broking: b28 * d28, mtf: m28 * d28 };
   if (b === 'ANGELONE') {
     F2.depository = F1.depository * F2.broking / F1.broking;
@@ -169,13 +173,13 @@ function patRecompute(kit, g, pe, disc, today) {
   F2.tax = tax * F2.pbt;
   F2.pat = F2.pbt - F2.tax;
   F2.pat_margin = F2.pat / F2.total_income;
-  F2.adr_consol = (b0 + m0) * path;
+  F2.adr_consol = b28 + m28;
   const put = (per, L) => Object.keys(L).forEach(k => { out[`${per}|${k}|`] = L[k]; });
   Object.keys(Q).forEach(q => put(q, Q[q]));
   put(kit.fy1, F1);
   put(kit.fy2, F2);
   // build-up: each quarter from the current one to Q4 FY28
-  kit.buildup.forEach(q => { out[`${q}|adr_consol|`] = (b0 + m0) * (1 + g) ** kit.step[q]; });
+  kit.buildup.forEach(q => { out[`${q}|adr_consol|`] = b0 * (1 + g) ** kit.step[q] + m0 * (1 + gm) ** kit.step[q]; });
   // top block (sums to total income)
   const tr = BRK_PAT_TREASURY[b];
   [[kit.fy0, kit.fy0 && P[kit.fy0]], [kit.fy1, F1], [kit.fy2, F2]].forEach(([per, L]) => {
@@ -204,7 +208,7 @@ function brkPatTol(unit) { return unit === 'fraction' || unit === 'x' || unit ==
 // Recompute at the published defaults and compare with every published row it covers.
 // Returns the lines that differ: [{ key, label, unit, published, recomputed }].
 function brkPatCheck(kit, rows) {
-  const d = kit.defaults, re = patRecompute(kit, d.g, d.pe, d.disc, d.today), bad = [];
+  const d = kit.defaults, re = patRecompute(kit, d.g, d.pe, d.disc, d.today, d.gm), bad = [];
   rows.forEach(r => {
     const key = `${r.period_key}|${r.line}|${r.scenario}`;
     if (!(key in re) || r.value == null) return;
@@ -322,7 +326,8 @@ function brkPatPredictor(el, pat, summary, kit) {
   // the reader's inputs: kept in memory for this broker's run (the Valuation tab reads them too)
   let live = BRK_PAT_LIVE[broker];
   if (!live || live.run !== runId || locked) live = null;
-  const st = live ? { ...live.inp, pe: [...live.inp.pe] } : { g: D.g, pe: [...D.pe], disc: D.disc, today: D.today };
+  const copy = x => ({ g: x.g, gm: x.gm ?? x.g, pe: [...x.pe], disc: x.disc, today: x.today });
+  const st = live ? copy(live.inp) : copy(D);
   const fy1 = kit.fy1, fy2 = kit.fy2, s1 = brkPatShort(fy1), s2 = brkPatShort(fy2);
   const pl = brkPatIndex(rows.filter(r => !brkPatHidden(r.line)));
   const regimeOf = col => brkPatRegime(pl, col);
@@ -331,19 +336,27 @@ function brkPatPredictor(el, pat, summary, kit) {
   const buildQs = kit.buildup;
   const cur = buildQs[0], curRule = pubRow[`${cur}|adr_consol|`]?.rule;
   const pv = (key, f, cls = '') => `<td class="${cls}" data-pv="${escHtml(key)}" data-f="${f}"></td>`;
-  const gIn = `<input class="rx-in rx-num-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="g" aria-label="QoQ growth of consolidated ADR, % a quarter">`;
+  // a build-up cell the page computes from the kit (broking, MTF and the MTF book per quarter; not published lines)
+  const bu = (q, what, f, cls = '') => `<td class="${cls}" data-bu="${escHtml(q)}|${what}" data-f="${f}"></td>`;
+  const growIn = (k, what) => `<input class="rx-in rx-num-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="${k}" aria-label="QoQ growth of ${what} ADR, % a quarter">`;
+  const I0 = kit.inputs, bookDays = I0.k_fy28_days, y = I0.k_mtf_yield;
+  const bookOf = adr => adr * bookDays / y;       // the MTF book an MTF ADR implies (₹ Cr): ADR × trading days ÷ yield
   const buildup = rxPanel({
-    title: 'ADR build-up', meta: `consolidated ADR (broking + MTF gross), ₹ Cr / day · one input: the QoQ growth`,
-    body: `<div class="rx-pb rx-scroll"><table class="rx-table rx-xl brk-pat-build" aria-label="Consolidated ADR build-up">
-      <thead><tr><th scope="col" class="rx-xl-lab rx-xl-t">Period</th><th scope="col" class="rx-xl-t rx-xl-r">ADR</th><th scope="col" class="rx-xl-w" colspan="2">QoQ growth</th></tr></thead>
+    title: 'ADR build-up', meta: `₹ Cr / day · two inputs: the QoQ growth of broking ADR and of MTF ADR`,
+    body: `<div class="rx-pb rx-scroll"><table class="rx-table rx-xl brk-pat-build" aria-label="ADR build-up: broking, MTF and consolidated">
+      <thead><tr><th scope="col" class="rx-xl-lab rx-xl-t">Period</th><th scope="col" class="rx-xl-t">Broking ADR</th><th scope="col" class="rx-xl-t">MTF ADR</th>
+        <th scope="col" class="rx-xl-t" title="The MTF book the MTF ADR implies: MTF ADR × ${fmtNum(bookDays, 0)} trading days ÷ ${fmtNum(y * 100, 2)} % yield">MTF book ₹ Cr</th><th scope="col" class="rx-xl-t rx-xl-r">Consolidated ADR</th></tr></thead>
       <tbody>
-        <tr class="brk-pat-ref"><td class="rx-xl-lab">Current 45 DMA</td>${pv('inputs|adr_45dma|', 'adr', 'rx-xl-r')}<td class="rx-xl-w"></td><td class="rx-xl-w"></td></tr>
-        ${buildQs.map((q, i) => `<tr${i === 0 ? ' class="rx-xl-bold"' : ''}><td class="rx-xl-lab">${escHtml(brkPatShort(q))}${i === 0 ? ' <span class="brk-pat-est">(estimate)</span>' : ''}</td>${pv(`${q}|adr_consol|`, 'adr', 'rx-xl-r')}${i === 0
-          ? `<td class="rx-xl-w rx-xl-key-in">${gIn}<span class="rx-xl-unit">%</span></td><td class="rx-xl-w" title="Annualised: (1 + g)^4 − 1">(<span data-pd="annual"></span>)</td>`
-          : '<td class="rx-xl-w"></td><td class="rx-xl-w"></td>'}</tr>`).join('')}
-        <tr class="rx-xl-bold brk-pat-avg"><td class="rx-xl-lab rx-xl-t rx-xl-b">${escHtml(s2)} Avg</td>${pv(`${fy2}|adr_consol|`, 'adr', 'rx-xl-t rx-xl-b rx-xl-r')}<td class="rx-xl-w" data-pd="vs45"></td><td class="rx-xl-w brk-pat-note">Growth from current 45 DMA</td></tr>
+        <tr class="rx-xl-bold"><td class="rx-xl-lab">QoQ growth</td>
+          <td class="rx-xl-key-in">${growIn('g', 'broking')}<span class="rx-xl-unit">%</span> <span class="brk-pat-note" title="Annualised: (1 + g)^4 − 1">(<span data-pd="annual-g"></span> a yr)</span></td>
+          <td class="rx-xl-key-in">${growIn('gm', 'MTF')}<span class="rx-xl-unit">%</span> <span class="brk-pat-note" title="Annualised: (1 + g)^4 − 1">(<span data-pd="annual-gm"></span> a yr)</span></td>
+          <td class="brk-pat-note" data-pd="book-add" title="MTF book added in the first quarter after the current one"></td><td class="rx-xl-r"></td></tr>
+        <tr class="brk-pat-ref"><td class="rx-xl-lab">Current 45 DMA</td><td></td><td></td><td></td>${pv('inputs|adr_45dma|', 'adr', 'rx-xl-r')}</tr>
+        ${buildQs.map((q, i) => `<tr${i === 0 ? ' class="rx-xl-bold"' : ''}><td class="rx-xl-lab">${escHtml(brkPatShort(q))}${i === 0 ? ' <span class="brk-pat-est">(estimate)</span>' : ''}</td>${bu(q, 'b', 'adr')}${bu(q, 'm', 'adr')}${bu(q, 'book', 'cr0')}${pv(`${q}|adr_consol|`, 'adr', 'rx-xl-r')}</tr>`).join('')}
+        <tr class="rx-xl-bold brk-pat-avg"><td class="rx-xl-lab rx-xl-t rx-xl-b">${escHtml(s2)} Avg</td>${pv(`${fy2}|adr_broking|`, 'adr', 'rx-xl-t rx-xl-b')}${pv(`${fy2}|adr_mtf|`, 'adr', 'rx-xl-t rx-xl-b')}${bu(fy2, 'book', 'cr0', 'rx-xl-t rx-xl-b')}${pv(`${fy2}|adr_consol|`, 'adr', 'rx-xl-t rx-xl-b rx-xl-r')}</tr>
+        <tr class="brk-pat-ref"><td class="rx-xl-lab">Growth from current 45 DMA</td><td></td><td></td><td></td><td class="rx-xl-r" data-pd="vs45"></td></tr>
       </tbody></table></div>`,
-    foot: `${escHtml(brkPatShort(cur))} (estimate) is the quarter's consolidated ADR so far: broking ${fmtNum(kit.inputs.k_adr_broking0, 2)} + MTF gross ${fmtNum(kit.inputs.k_adr_mtf0, 2)} a day${curRule ? ` (${escHtml(curRule)})` : ''}. Each later quarter = that × (1 + QoQ growth) a quarter; ${escHtml(s2)} Avg = the average of its four quarters, which sets ${escHtml(s2)}'s operating revenue below. The 45 DMA (${escHtml(pubRow['inputs|adr_45dma|']?.rule || 'mean of the last 45 engine days of broking + MTF')}) is for reference only.`,
+    foot: `${escHtml(brkPatShort(cur))} (estimate) is the quarter's ADR so far: broking ${fmtNum(I0.k_adr_broking0, 2)} and MTF gross ${fmtNum(I0.k_adr_mtf0, 2)} a day${curRule ? ` (${escHtml(curRule)})` : ''}. Each later quarter's broking ADR = that × (1 + broking growth) a quarter, its MTF ADR = that × (1 + MTF growth); consolidated = the two together. ${escHtml(s2)} Avg = the average of its four quarters, which sets ${escHtml(s2)}'s operating revenue below. MTF book = MTF ADR × ${fmtNum(bookDays, 0)} days ÷ ${fmtNum(y * 100, 2)} % yield (the P&L's MTF book is MTF income ÷ yield per period, so it differs slightly). The 45 DMA (${escHtml(pubRow['inputs|adr_45dma|']?.rule || 'mean of the last 45 engine days of broking + MTF')}) is for reference only.`,
   });
 
   // ── (b) PAT predictor ──
@@ -380,7 +393,7 @@ function brkPatPredictor(el, pat, summary, kit) {
           <input id="brkPatDisc-${BRK_BROKER.view}" class="rx-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="disc"><div class="rx-tags"><span class="rx-foot">% a year</span></div></div>
         <div class="rx-field"><label for="brkPatToday-${BRK_BROKER.view}">Discount ${escHtml(s1)} → today</label>
           <input id="brkPatToday-${BRK_BROKER.view}" class="rx-in rx-xl-in" type="number" step="0.5" inputmode="decimal" data-pin="today"><div class="rx-tags"><span class="rx-foot">%</span></div></div>
-        <p class="rx-foot">QoQ growth: in the build-up · P/E: in the PE row. EPS = PAT ÷ <span data-pv="${escHtml(fy2)}|shares|" data-f="rs2"></span> Cr shares = ₹<span data-pv="${escHtml(fy2)}|eps|base" data-f="rs2"></span>; close ₹<span data-pv="${escHtml(fy2)}|close|" data-f="rs2"></span>.</p>
+        <p class="rx-foot">Broking and MTF QoQ growth: in the build-up · P/E: in the PE row. EPS = PAT ÷ <span data-pv="${escHtml(fy2)}|shares|" data-f="rs2"></span> Cr shares = ₹<span data-pv="${escHtml(fy2)}|eps|base" data-f="rs2"></span>; close ₹<span data-pv="${escHtml(fy2)}|close|" data-f="rs2"></span>.</p>
         <button type="button" class="rx-btn" data-pat-reset>Reset to published</button>
         <p class="rx-foot brk-pat-state" data-pat-state role="status" aria-live="polite"></p>
       </aside></div>`,
@@ -423,7 +436,7 @@ function brkPatPredictor(el, pat, summary, kit) {
 
   const checkNote = locked ? rxAlert(`<strong>The inputs are switched off: recomputing at the published defaults does not give the published figures.</strong> ${bad.slice(0, 4).map(x => `${escHtml(x.key.replace(/\|$/, '').replace(/\|/g, ' · '))}: published ${fmtNum(x.published, 4)}, recomputed ${fmtNum(x.recomputed, 4)}`).join('; ')}${bad.length > 4 ? `; and ${bad.length - 4} more` : ''}. The figures below are the engine's as published.`) : '';
   el.innerHTML = `<div class="brk-wrap">${summary.run ? brkRunBar({ legend: false }) : ''}<div class="rx brk-pat">
-    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules; edits are not saved.'}`, 'info')}
+    ${rxAlert(`<strong>PAT model, as the engine published it</strong> (${brkPatRunNote(pat, summary)}). ${kit.proj.length ? `${escHtml(kit.fy1q.filter(q => !kit.proj.includes(q)).join(' and ') || 'No quarter')} ${kit.fy1q.length - kit.proj.length === 1 ? 'is' : 'are'} ${name}'s filed results; the rest is projected from the engine's ADR. ` : ''}${locked ? '' : 'Change the broking or MTF QoQ growth, a P/E or a discount rate and the page recomputes the build-up, the predictor, both P&Ls and the Valuation tab\'s ADR method with the engine\'s own rules. Your edits stay on this page and are not saved.'}`, 'info')}
     ${checkNote}
     ${buildup}
     ${predictor}
@@ -433,20 +446,24 @@ function brkPatPredictor(el, pat, summary, kit) {
   const root = el.firstElementChild;
   const ins = [...root.querySelectorAll('[data-pin]')];
   const shown = x => String(+(x * 100).toFixed(4));
+  const get = (o, k) => (k === 'g' ? o.g : k === 'gm' ? o.gm : k === 'disc' ? o.disc : k === 'today' ? o.today : o.pe[+k.slice(2)]);
   const setInputs = () => ins.forEach(i => {
-    const k = i.dataset.pin;
-    i.value = k === 'g' ? shown(st.g) : k === 'disc' ? shown(st.disc) : k === 'today' ? shown(st.today) : String(st.pe[+k.slice(2)]);
+    const k = i.dataset.pin, x = get(st, k);
+    i.value = /^pe/.test(k) ? String(x) : shown(x);
   });
-  const near = (a, b) => Math.abs(a - b) < 1e-9;
-  const isEdited = () => !(near(st.g, D.g) && near(st.disc, D.disc) && near(st.today, D.today) && st.pe.every((x, i) => near(x, D.pe[i])));
+  const near = (a, b) => a != null && b != null && Math.abs(a - b) < 1e-9;
+  const sameInp = (a, b) => ['g', 'gm', 'disc', 'today', 'pe0', 'pe1', 'pe2'].every(k => near(get(a, k), get(b, k)));
+  const isEdited = () => !sameInp(st, D);
+  const pct1 = x => `${fmtNum(x * 100, 1)} %`;
+  const growthText = o => `broking ${pct1(o.g)} and MTF ${pct1(o.gm)} QoQ`;
+  const inputsText = o => `${growthText(o)}, P/E ${o.pe.map(x => fmtNum(x, 1)).join(' / ')}×, discounts ${pct1(o.disc)} and ${pct1(o.today)}`;
 
   const paint = () => {
     const edited = !locked && isEdited();
-    const re = edited ? patRecompute(kit, st.g, st.pe, st.disc, st.today) : null;
-    const gEdited = edited && !near(st.g, D.g);
+    const re = edited ? patRecompute(kit, st.g, st.pe, st.disc, st.today, st.gm) : null;
     const why = key => {
       const valLine = /\|(eps|price_fwd|price_disc|target_today|upside)\|/.test(key);
-      return `recalculated on this page at ${fmtNum(st.g * 100, 1)} % QoQ${valLine ? `, P/E ${st.pe.map(x => fmtNum(x, 1)).join(' / ')}×, discounts ${fmtNum(st.disc * 100, 1)} % and ${fmtNum(st.today * 100, 1)} %` : ''}`;
+      return `recalculated on this page at ${valLine ? inputsText(st) : growthText(st)}`;
     };
     const value = key => {
       const r = pubRow[key];
@@ -468,8 +485,22 @@ function brkPatPredictor(el, pat, summary, kit) {
       td.textContent = x.rule || '';
       td.classList.toggle('brk-pat-chg', x.changed);
     });
-    const annual = root.querySelector('[data-pd="annual"]');
-    if (annual) annual.textContent = `${fmtNum(((1 + st.g) ** 4 - 1) * 100, 0)} %`;
+    // the build-up's broking, MTF and MTF book per quarter, at the inputs shown (the published ones while locked)
+    const at = locked ? D : st;
+    const bAt = q => I0.k_adr_broking0 * (1 + at.g) ** kit.step[q], mAt = q => I0.k_adr_mtf0 * (1 + at.gm) ** kit.step[q];
+    root.querySelectorAll('[data-bu]').forEach(td => {
+      const [q, what] = td.dataset.bu.split('|');
+      const v = q === fy2 ? bookOf(value(`${fy2}|adr_mtf|`).v) : what === 'b' ? bAt(q) : what === 'm' ? mAt(q) : bookOf(mAt(q));
+      td.textContent = brkPatCell(v, td.dataset.f);
+      td.classList.toggle('brk-pat-chg', edited && !(what === 'b' ? near(at.g, D.g) : near(at.gm, D.gm)));
+      td.title = what === 'b' ? `broking ${fmtNum(I0.k_adr_broking0, 3)} × (1 + ${pct1(at.g)})^${kit.step[q] ?? ''}`
+        : what === 'm' ? `MTF ${fmtNum(I0.k_adr_mtf0, 3)} × (1 + ${pct1(at.gm)})^${kit.step[q] ?? ''}`
+          : `MTF ADR × ${fmtNum(bookDays, 0)} days ÷ ${fmtNum(y * 100, 2)} % yield`;
+    });
+    const annual = (k, g) => { const n = root.querySelector(`[data-pd="annual-${k}"]`); if (n) n.textContent = `${fmtNum(((1 + g) ** 4 - 1) * 100, 0)} %`; };
+    annual('g', at.g); annual('gm', at.gm);
+    const add = root.querySelector('[data-pd="book-add"]');
+    if (add) add.textContent = `+₹${fmtNum(bookOf(I0.k_adr_mtf0) * at.gm, 0)} Cr next qtr`;
     const vs45 = root.querySelector('[data-pd="vs45"]');
     if (vs45) {
       const avg = value(`${fy2}|adr_consol|`).v, dma = value('inputs|adr_45dma|').v;
@@ -477,21 +508,18 @@ function brkPatPredictor(el, pat, summary, kit) {
     }
     ins.forEach(i => {
       const k = i.dataset.pin;
-      const d = k === 'g' ? D.g : k === 'disc' ? D.disc : k === 'today' ? D.today : D.pe[+k.slice(2)];
-      const x = k === 'g' ? st.g : k === 'disc' ? st.disc : k === 'today' ? st.today : st.pe[+k.slice(2)];
-      i.classList.toggle('is-edited', !near(x, d));
+      i.classList.toggle('is-edited', !near(get(st, k), get(D, k)));
       i.disabled = locked;
       if (locked) i.title = 'Switched off: the published figures could not be reproduced (see the note above)';
     });
-    const reset = root.querySelector('[data-pat-reset]');
-    reset.disabled = locked || !edited;
+    root.querySelector('[data-pat-reset]').disabled = locked || !edited;
     root.querySelector('[data-pat-state]').textContent = locked ? 'Inputs switched off.'
-      : edited ? `Showing your inputs${gEdited ? ` (${fmtNum(st.g * 100, 1)} % QoQ)` : ''}; recalculated lines are tinted. The Valuation tab's ADR method uses them too.`
+      : edited ? `Showing your inputs (${growthText(st)}); recalculated lines are tinted. The Valuation tab's ADR method uses them too.`
         : 'Showing the published figures.';
     // the Valuation tab's ADR method reads this
     if (edited) BRK_PAT_LIVE[broker] = { run: runId, inp: { ...st, pe: [...st.pe] }, edited: true,
       targets: Object.fromEntries(BRK_PAT_SCENARIOS.map(([s]) => [s, re[`${fy2}|target_today|${s}`]])),
-      desc: `${fmtNum(st.g * 100, 1)} % QoQ, P/E ${st.pe.map(x => fmtNum(x, 1)).join(' / ')}×, discounts ${fmtNum(st.disc * 100, 1)} % and ${fmtNum(st.today * 100, 1)} %` };
+      desc: inputsText(st) };
     else delete BRK_PAT_LIVE[broker];
   };
   setInputs();
@@ -503,14 +531,12 @@ function brkPatPredictor(el, pat, summary, kit) {
     const x = parseFloat(i.value);
     if (!isFinite(x)) return;                      // half-typed: keep the last good value
     const k = i.dataset.pin;
-    if (k === 'g') { if (x <= -100) return; st.g = x / 100; }
-    else if (k === 'disc') { if (x <= -100) return; st.disc = x / 100; }
-    else if (k === 'today') { if (x <= -100) return; st.today = x / 100; }
+    if (k === 'g' || k === 'gm' || k === 'disc' || k === 'today') { if (x <= -100) return; st[k] = x / 100; }
     else st.pe[+k.slice(2)] = x;
     paint();
   });
   root.querySelector('[data-pat-reset]').addEventListener('click', () => {
-    Object.assign(st, { g: D.g, pe: [...D.pe], disc: D.disc, today: D.today });
+    Object.assign(st, copy(D));
     setInputs();
     paint();
   });

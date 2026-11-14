@@ -3,11 +3,12 @@ PAT model (patRecompute, a port of the brokers engine's src/engine/pat_kit.py) a
 engine's own vectors, the load-time check, the fallback for runs without the new rows, and
 the Valuation tab's re-weighting at the reader's inputs (34-brokers-valuation.js).
 
-tests/fixtures/pat_vectors_<BROKER>.json are the engine's vectors (contract of 10 Nov 2026):
-{"rows": [sb_pat_lines rows as /api/brokers?view=pat returns them], "cases": [{g, pe, disc,
-today, expect: {"<period>|<line>|<scenario>": value}}]}, written from an offline engine run
-(branch feat/pat-adr-buildup of abiyani-tools/brokersdashboard) and checked there against
-pat.build()."""
+tests/fixtures/pat_vectors_<BROKER>.json are the engine's vectors (contract of 10 Nov 2026;
+two growth inputs since 13 Nov 2026): {"rows": [sb_pat_lines rows as /api/brokers?view=pat
+returns them], "cases": [{g, gm, pe, disc, today, expect: {"<period>|<line>|<scenario>":
+value}}]}, written by seed/build_pat_vectors.py of abiyani-tools/brokersdashboard (whose
+tests/test_pat_kit.py checks the recompute against pat.build()). g is the broking (and cash)
+ADR growth a quarter, gm the MTF ADR growth."""
 
 import json
 import unittest
@@ -29,7 +30,7 @@ def recompute_cases(doc):
     """[{key: recomputed}] per case, from patRecompute on the kit of doc's rows."""
     return js_eval(PAT, """(() => { const { kit, missing } = brkPatKit(DATA.rows);
       if (!kit) throw new Error('kit incomplete: ' + missing.join(', '));
-      return DATA.cases.map(c => patRecompute(kit, c.g, c.pe, c.disc, c.today)); })()""", doc)
+      return DATA.cases.map(c => patRecompute(kit, c.g, c.pe, c.disc, c.today, c.gm)); })()""", doc)
 
 
 @unittest.skipUnless(NODE, "node not installed")
@@ -69,13 +70,36 @@ class EngineVectors(unittest.TestCase):
             self.assertAlmostEqual(out["FY 2028|op_revenue|"], out["FY 2028|broking|"] + out["FY 2028|mtf|"], places=6)
 
     def test_build_up_compounds_quarterly(self):
-        doc = vectors("ANGELONE")
-        out = recompute_cases(doc)[1]
-        g = doc["cases"][1]["g"]
-        q3, q4 = out["Q3 FY 2027|adr_consol|"], out["Q4 FY 2027|adr_consol|"]
-        self.assertAlmostEqual(q4 / q3, 1 + g, places=12)
-        fy28 = [out[f"Q{k} FY 2028|adr_consol|"] for k in (1, 2, 3, 4)]
-        self.assertAlmostEqual(out["FY 2028|adr_consol|"], sum(fy28) / 4, places=9)
+        # broking at (1 + g) and MTF at (1 + gm) a quarter, each from its own start ADR
+        for broker in BROKERS:
+            doc = vectors(broker)
+            inp = {r["line"]: r["value"] for r in doc["rows"] if r["period_key"] == "inputs"}
+            b0, m0 = inp["k_adr_broking0"], inp["k_adr_mtf0"]
+            for case, out in zip(doc["cases"], recompute_cases(doc)):
+                g, gm = case["g"], case["gm"]
+                self.assertAlmostEqual(out["Q3 FY 2027|adr_consol|"], b0 + m0, places=9)
+                self.assertAlmostEqual(out["Q4 FY 2027|adr_consol|"], b0 * (1 + g) + m0 * (1 + gm), places=9)
+                fy28 = [out[f"Q{k} FY 2028|adr_consol|"] for k in (1, 2, 3, 4)]
+                self.assertAlmostEqual(out["FY 2028|adr_consol|"], sum(fy28) / 4, places=9)
+                self.assertAlmostEqual(out["FY 2028|adr_mtf|"], m0 * sum((1 + gm) ** k for k in (2, 3, 4, 5)) / 4, places=9)
+                self.assertAlmostEqual(out["FY 2028|adr_broking|"], b0 * sum((1 + g) ** k for k in (2, 3, 4, 5)) / 4, places=9)
+
+    def test_mtf_growth_leaves_broking_alone(self):
+        doc = vectors("GROWW")
+        names = [c["name"] for c in doc["cases"]]
+        out = recompute_cases(doc)
+        base, mtf = out[names.index("defaults")], out[names.index("gm 12.7%")]
+        for k in ("FY 2028|broking|", "FY 2028|adr_broking|", "Q4 FY 2027|broking|"):
+            self.assertAlmostEqual(base[k], mtf[k], places=9)
+        self.assertGreater(mtf["FY 2028|mtf|"], base["FY 2028|mtf|"] + 100)
+        self.assertGreater(mtf["FY 2028|pat|"], base["FY 2028|pat|"])
+
+    def test_omitted_gm_is_the_published_default(self):
+        doc = vectors("GROWW")
+        a, b = js_eval(PAT, """(() => { const { kit } = brkPatKit(DATA.rows);
+          return [patRecompute(kit, 0.02, [20, 25, 30], 0.2, 0.1)['FY 2028|mtf|'],
+                  patRecompute(kit, 0.02, [20, 25, 30], 0.2, 0.1, kit.defaults.gm)['FY 2028|mtf|']]; })()""", doc)
+        self.assertAlmostEqual(a, b, places=9)
 
 
 @unittest.skipUnless(NODE, "node not installed")
@@ -139,7 +163,13 @@ class OlderRuns(unittest.TestCase):
         out = js_eval(PAT, "(({ kit }) => [kit.broker, kit.fy1, kit.fy2, kit.fy0, kit.proj, kit.defaults])(brkPatKit(DATA.rows))",
                       vectors("ANGELONE"))
         self.assertEqual(out[:5], ["ANGELONE", "FY 2027", "FY 2028", "FY 2026", ["Q3 FY 2027", "Q4 FY 2027"]])
-        self.assertEqual(out[5], {"g": 0.03, "pe": [22, 27, 32], "disc": 0.2, "today": 0.1})
+        self.assertEqual(out[5], {"g": 0.03, "gm": 0.03, "pe": [22, 27, 32], "disc": 0.2, "today": 0.1})
+
+    def test_run_without_mtf_growth_row_grows_mtf_at_the_broking_rate(self):
+        doc = vectors("GROWW")
+        rows = [r for r in doc["rows"] if r["line"] != "in_mtf_qoq_growth"]
+        out = js_eval(PAT, "(({ kit }) => kit.defaults)(brkPatKit(DATA))", rows)
+        self.assertEqual(out["gm"], out["g"])
 
 
 @unittest.skipUnless(NODE, "node not installed")
