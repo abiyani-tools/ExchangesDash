@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-16T10:30:31Z",
+  "updated_at": "2026-11-16T10:35:28Z",
   "market_status": {
     "marketState": [
       {
@@ -10,7 +10,7 @@
         "last": 25291.1,
         "variation": 146.79999999999927,
         "percentChange": 0.58,
-        "marketStatusMessage": "Market in Post-Close Session"
+        "marketStatusMessage": "Normal Market has Closed"
       },
       {
         "market": "Currency",
@@ -54,14 +54,14 @@
         "marketStatus": "Open",
         "tradeDate": "16-Nov-2026",
         "index": "",
-        "last": "93.9900",
+        "last": "93.9975",
         "variation": "",
         "percentChange": "",
         "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "16-Nov-2026 16:00",
-        "tradeDateFormatted": "16-Nov-2026 16:00",
+        "updated_time": "16-Nov-2026 16:05",
+        "tradeDateFormatted": "16-Nov-2026 16:05",
         "slickclass": "slick-item"
       }
     ],
