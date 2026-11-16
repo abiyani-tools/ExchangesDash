@@ -1,44 +1,6 @@
 {
   "days": [
     {
-      "date": "2026-04-15",
-      "weekday": 2,
-      "weekday_name": "Wednesday",
-      "day_type": "pre_expiry",
-      "eod_revenue": 23.31,
-      "n_samples": 1,
-      "checkpoints": {
-        "10:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "11:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "12:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "13:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "14:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "15:00": {
-          "revenue": null,
-          "fraction": null
-        },
-        "15:30": {
-          "revenue": 23.31,
-          "fraction": 1.0
-        }
-      }
-    },
-    {
       "date": "2026-04-16",
       "weekday": 3,
       "weekday_name": "Thursday",
@@ -2468,6 +2430,54 @@
         },
         "16:00": {
           "revenue": 44.46,
+          "fraction": 1.0
+        }
+      }
+    },
+    {
+      "date": "2026-11-13",
+      "weekday": 4,
+      "weekday_name": "Friday",
+      "day_type": "normal",
+      "eod_revenue": 7.51,
+      "n_samples": 54,
+      "checkpoints": {
+        "10:00": {
+          "revenue": 1.75,
+          "fraction": 0.233,
+          "predicted_eod": 11.42,
+          "predicted_at_min": 30
+        },
+        "11:00": {
+          "revenue": 3.0838,
+          "fraction": 0.4106
+        },
+        "12:00": {
+          "revenue": 4.118,
+          "fraction": 0.5483,
+          "predicted_eod": 8.57,
+          "predicted_at_min": 155
+        },
+        "13:00": {
+          "revenue": 5.14,
+          "fraction": 0.6844,
+          "predicted_eod": 8.42,
+          "predicted_at_min": 225
+        },
+        "14:00": {
+          "revenue": 5.89,
+          "fraction": 0.7843,
+          "predicted_eod": 8.06,
+          "predicted_at_min": 285
+        },
+        "15:00": {
+          "revenue": 6.92,
+          "fraction": 0.9214,
+          "predicted_eod": 8.0,
+          "predicted_at_min": 345
+        },
+        "16:00": {
+          "revenue": 7.51,
           "fraction": 1.0
         }
       }
