@@ -78,7 +78,13 @@ The shell lives in `dashboard/js/00-core.js` ("BROKERS MODE"). It handles the re
   `tests/test_broker_pat.py` runs it on the engine's vectors (`tests/fixtures/pat_vectors_*.json`). The Valuation
   tab's three method weights are inputs as well: the net value and upside are re-weighted on the page with the reader's
   weights (`brkValScale`, scaled to add up to 100 %, then the engine's Σ weight × price, `brkValReweight`); the
-  method prices themselves stay the engine's. These edits are never saved. The summary view also returns each
+  method prices themselves stay the engine's, with one exception. The ADR the regression and ratio methods value at
+  is an input too (a 45-DMA / quarter-average toggle and a typed ADR, above the valuation): `brkValAtAdr` in
+  `34-brokers-valuation.js` re-runs the engine's `valuation.regression` (slope × ADR + intercept, bear / bull moving
+  slope × ADR by ∓ the band) and `valuation.ratio` ((mean ∓ 1 SD) × ADR) on the window's published fit. At the
+  published ADR (`adr_now`) it must reproduce the published regression and ratio lines, checked on load
+  (`brkValAdrCheck`, to ₹0.005); if it doesn't, the input is not offered and the page shows the published figures only.
+  `tests/test_broker_pat.py` runs it on a published Groww run. These edits are never saved. The summary view also returns each
   panel's last data day (`through`); the run bar shows MTF's, and a panel whose data ends before the
   run's as-of date is flagged (the engine has published runs whose MTF stopped days early). Use the Indian FY (Apr–Mar),
   ₹ Cr, and `quarterSortKey` to sort quarters.

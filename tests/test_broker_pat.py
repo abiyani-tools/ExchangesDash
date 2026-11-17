@@ -265,6 +265,34 @@ class ValuationAdrInput(unittest.TestCase):
         self.assertAlmostEqual(out["net"]["base"], want)
         self.assertAlmostEqual(out["upside"]["base"], want / 224.95 - 1)
 
+    def test_on_load_check_passes_on_the_published_run(self):
+        # the formula reproduces the published regression and ratio lines at the published ADR: the input is offered
+        S = {m: {s: {"value": x} for s, x in v.items()} for m, v in self.PUBLISHED.items()}
+        names = ["brkValAdrCheck"] + self.NAMES
+        self.assertEqual(js_eval(names, "brkValAdrCheck(DATA.fit, DATA.adr, DATA.S)", {"fit": self.FIT, "adr": self.ADR0, "S": S}), [])
+
+    def test_on_load_check_catches_an_engine_formula_change(self):
+        # e.g. the engine applying the band to the whole regression price: bear / bull differ, so no input
+        S = {m: {s: {"value": x} for s, x in v.items()} for m, v in self.PUBLISHED.items()}
+        f, a = self.FIT, self.ADR0
+        S["regression"]["bear"]["value"] = (f["slope"] * a + f["intercept"]) * 0.9
+        S["regression"]["bull"]["value"] = (f["slope"] * a + f["intercept"]) * 1.1
+        names = ["brkValAdrCheck"] + self.NAMES
+        self.assertEqual(js_eval(names, "brkValAdrCheck(DATA.fit, DATA.adr, DATA.S)", {"fit": f, "adr": a, "S": S}),
+                         ["regression bear", "regression bull"])
+        # a missing published line counts as a mismatch too
+        del S["ratio"]["base"]
+        self.assertIn("ratio base", js_eval(names, "brkValAdrCheck(DATA.fit, DATA.adr, DATA.S)", {"fit": f, "adr": a, "S": S}))
+
+    def test_the_quarter_comes_from_the_as_of_date(self):
+        q = lambda d: js_eval(["brkValQuarter"], f"brkValQuarter({d!r})")
+        self.assertEqual(q("2026-11-13"), "Q3 FY27")
+        self.assertEqual(q("2026-04-01"), "Q1 FY27")
+        self.assertEqual(q("2026-06-30"), "Q1 FY27")
+        self.assertEqual(q("2026-03-31"), "Q4 FY26")
+        self.assertEqual(q("2027-01-05"), "Q4 FY27")
+        self.assertEqual(q(""), "")
+
     def test_the_45dma_basis_is_the_latest_published_45dma(self):
         # the series' last day can lack a 45-DMA (no price yet): the basis is the latest day that has one
         days = [{"date": "2026-11-11", "dma": 21.4}, {"date": "2026-11-12", "dma": 21.52}, {"date": "2026-11-13", "dma": None}]
@@ -320,6 +348,20 @@ class Markup(unittest.TestCase):
         self.assertIn('data-rx-seg="brkValAdrBasis"', src)          # 45-DMA | quarter average
         self.assertIn("rxOnSeg(root, 'brkValAdrBasis'", src)       # a pick fills the input with that basis
         self.assertIn("${adrPanel}${triangulation}", src)          # its own panel, right above the valuation
+
+    def test_valuation_adr_review_points(self):
+        # PR #93 review, 16 Nov 2026
+        src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()
+        doc = (ROOT / "docs" / "BROKERS_INTEGRATION.md").read_text()
+        self.assertIn("brkValAtAdr", doc)                                  # 1: listed as an exception
+        self.assertIn("brkValAdrCheck(fit, adr0, S)", src)                 # 2: checked on load ...
+        self.assertIn("const ast = wst && !adrOff.length", src)            #    ... and no input when it fails
+        self.assertIn("!sameAdr(ast.adr, adr0)", src)                      # 3: compared at the 2 decimals shown
+        self.assertIn("root.addEventListener('change'", src)               # 4: the value in use back on blur
+        self.assertIn("const wUse = edited ? scaled : W;", src)            # 5: an ADR-only edit keeps the weights
+        self.assertIn('data-vk="adr-v"', src)                              # 6: the ADR tile shows the ADR in use
+        self.assertNotIn("× the current ADR.", src)                        #    and the foot says which
+        self.assertIn("brkValQuarter(val.run.as_of_date)", src)            # 7: the quarter from the as-of date
 
     def test_each_valuation_chart_has_its_own_timeline(self):
         src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()

@@ -52,6 +52,28 @@ function brkValAtAdr(fit, adr) {
   };
 }
 
+// Whether brkValAtAdr at the published ADR reproduces the published regression and ratio prices (S: a window's
+// summary lines): the names of the method / scenario pairs off by more than tol ₹ ([] = they match). Checked on
+// load; the ADR input is offered only when it is [], so a change in the engine's formula can't make the page's
+// figures jump when the reader types an ADR (review on #93, 16 Nov 2026).
+function brkValAdrCheck(fit, adr, S, tol = 0.005) {
+  const at = brkValAtAdr(fit, adr), off = [];
+  ['regression', 'ratio'].forEach(m => BRK_VAL_SCEN.forEach(([s]) => {
+    const p = S?.[m]?.[s]?.value;
+    if (p == null || !(Math.abs(at[m][s] - p) <= tol)) off.push(`${m} ${s}`);
+  }));
+  return off;
+}
+
+// The Indian FY quarter of a date as the page labels it, '2026-11-13' → 'Q3 FY27' (Apr–Jun is Q1); '' for no date.
+// The quarter of the published ADR (adr_now, the quarter's average so far) is the run's as-of date's.
+function brkValQuarter(iso) {
+  const m = /^(\d{4})-(\d{2})-\d{2}/.exec(iso || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2];
+  return `Q${Math.floor(((mo + 8) % 12) / 3) + 1} FY${String((mo >= 4 ? y + 1 : y) % 100).padStart(2, '0')}`;
+}
+
 function brkValIndex(rows) {
   const sum = {}, inputs = {}, common = {}, weight = {}, series = {}, pe = [], bands = {};
   rows.forEach(r => {
@@ -95,10 +117,12 @@ function brkValScale(w) {
 // ast: { basis, adr } the ADR the regression and ratio methods use and the basis toggle's pick (edited in place),
 // adr0 the published one (the quarter's average so far), dmaNow the latest 45-DMA, fit the window's published fit
 // (brkValAtAdr), adrQ the quarter, basisLbl / basisVal a basis's label and ADR; ast is null when the fit isn't published.
-function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId, broker, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal }) {
+function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId, broker, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal, adrSub }) {
   const ins = [...root.querySelectorAll('[data-vw]')];
   const adrIn = root.querySelector('[data-vadr]');
   const near = (a, b) => Math.abs(a - b) < 1e-9;
+  // ADRs are shown and typed to 2 decimals: the same ADR at that precision (retyping the 22.68 shown for 22.6812… is no edit)
+  const sameAdr = (a, b) => Math.round(a * 100) === Math.round(b * 100);
   const pctTxt = x => `${fmtNum(x * 100, 0)} %`;
   const adrTxt = a => `₹${fmtNum(a, 2)} Cr / day`;
   const setInputs = () => ins.forEach(i => { i.value = String(+(wst[i.dataset.vw] * 100).toFixed(4)); });
@@ -106,10 +130,12 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
   const paint = () => {
     const { sum, scaled } = brkValScale(wst);
     const edited = BRK_VAL_METHODS.some(([m]) => !near(wst[m], W[m]));
-    const adrOn = !!ast && !near(ast.adr, adr0);
+    const adrOn = !!ast && !sameAdr(ast.adr, adr0);
     const at = adrOn ? { ...vals, ...brkValAtAdr(fit, ast.adr) } : vals;   // regression and ratio at the reader's ADR
     const any = edited || adrOn;
-    const re = any ? (scaled ? brkValReweight(at, scaled, at.adr, close) : null) : ovr;
+    // the reader's weights (scaled to 100 %) only when they edited them; an ADR-only edit keeps the published W
+    const wUse = edited ? scaled : W;
+    const re = any ? (wUse ? brkValReweight(at, wUse, at.adr, close) : null) : ovr;
     const fig = (line, s) => (re ? re[line][s] : any ? null : S[line]?.[s]?.value ?? null);
     const why = re ? `recalculated on this page: Σ weight × price at ${edited
       ? `your weights ${BRK_VAL_METHODS.map(([m]) => fmtNum(wst[m] * 100, 0)).join(' / ')} %${near(sum, 1) ? '' : ' (scaled to 100 %)'}`
@@ -152,7 +178,7 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
         : `Showing your weights${near(sum, 1) ? '' : `, which add up to ${pctTxt(sum)} and are scaled to 100 %`}; the net value and upside are recalculated (tinted). Not saved.`;
     if (edited) BRK_VAL_W[broker] = { run: runId, w: { ...wst } }; else delete BRK_VAL_W[broker];
     if (ast) {
-      const b0 = basisVal(ast.basis), typed = !near(ast.adr, b0);   // typed: the input differs from the basis
+      const b0 = basisVal(ast.basis), typed = !sameAdr(ast.adr, b0);   // typed: the input differs from the basis
       adrIn.classList.toggle('is-edited', typed);
       const def = root.querySelector('[data-val-adr-default]');
       def.disabled = !typed;
@@ -164,6 +190,12 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
           ? `Regression and ratio at the 45-DMA, ${adrTxt(ast.adr)} on ${fmtLongDate(dmaNow.date)} (${vsQ}); they, the net value and the upside are recalculated (tinted). Not saved.`
           : `Regression and ratio at your ADR, ${adrTxt(ast.adr)} (${vsQ}); they, the net value and the upside are recalculated (tinted). Not saved.`;
       if (adrOn || ast.basis !== 'qtd') BRK_VAL_ADR[broker] = { run: runId, basis: ast.basis, adr: ast.adr }; else delete BRK_VAL_ADR[broker];
+      // the ADR KPI tile: the ADR behind the regression, ratio and net value shown
+      setK('adr-lbl', adrOn ? 'ADR in use' : 'Current ADR');
+      setK('adr-v', `${rxCr(adrOn ? ast.adr : adr0, 2)}<small> / day</small>`);
+      setK('adr-s', adrOn
+        ? escHtml(`${!typed && ast.basis === 'dma' ? `45-DMA on ${fmtLongDate(dmaNow.date)}` : 'your ADR'} · published: ${adrQ ? `${adrQ} average` : 'quarter average'} ${fmtNum(adr0, 2)}`)
+        : escHtml(adrSub));
     }
   };
   setInputs();
@@ -182,6 +214,12 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
     if (!isFinite(x) || x < 0 || x > 100) return;   // half-typed or out of range: keep the last good value
     wst[i.dataset.vw] = x / 100;
     paint();
+  });
+  // leaving a box (blur or Enter) puts the value in use back in it, so a cleared, zero or out-of-range entry
+  // never stays on screen beside figures computed from the last good one
+  root.addEventListener('change', e => {
+    if (ast && e.target === adrIn) setAdr();
+    else if (e.target.closest('[data-vw]')) setInputs();
   });
   root.querySelector('[data-val-reset]').addEventListener('click', () => {
     Object.assign(wst, W);
@@ -257,11 +295,15 @@ async function buildBrokersValuation() {
   // the ADR the regression and ratio methods use: the reader's (this run), else the published current ADR
   const adr0 = inp('adr_now');
   const fit = { slope: inp('slope'), intercept: inp('intercept'), band: inp('band'), mean: inp('ratio_mean'), sd: inp('ratio_sd') };
-  const adrQ = ((/ of (Q\d FY \d{4})/.exec(I.adr_now?.rule || '') || [])[1] || '').replace(' FY 20', ' FY');
+  const adrQ = brkValQuarter(val.run.as_of_date);   // the quarter of adr_now: the run's as-of date's
+  const adrSub = (I.adr_now?.rule || '').replace(/^mean daily ADR \(broking \+ MTF\) over /, '');   // the ADR tile's line
+  // the page's formula must reproduce the published regression and ratio prices at the published ADR, else no input
+  const adrOff = adr0 && Object.values(fit).every(x => x != null) ? brkValAdrCheck(fit, adr0, S) : ['no fit'];
+  if (adrOff.length && adr0) console.warn(`Valuation ${BRK_BROKER.id}: the ADR input is off; the page's regression / ratio formula does not reproduce the published ${adrOff.join(', ')}`);
   const dmaNow = brkValLatestDma(X.days);   // the 45-DMA basis: the series' latest 45-day ADR
   const aSaved = BRK_VAL_ADR[BRK_BROKER.id], aKeep = aSaved && aSaved.run === val.run.run_id;
-  const ast = wst && adr0 && Object.values(fit).every(x => x != null)
-    ? { basis: aKeep && (aSaved.basis !== 'dma' || dmaNow) ? aSaved.basis : 'qtd', adr: aKeep ? aSaved.adr : adr0 } : null;
+  const ast = wst && !adrOff.length
+    ?{ basis: aKeep && (aSaved.basis !== 'dma' || dmaNow) ? aSaved.basis : 'qtd', adr: aKeep ? aSaved.adr : adr0 } : null;
   const v = (line, s) => (ovr && ovr[line] ? ovr[line][s] : S[line]?.[s]?.value ?? null);
   const ovrRule = line => (ovr && ovr[line] ? ` title="${escHtml(`recalculated on this page from the PAT Predictor tab's inputs (${patLive.desc})`)}"` : null);
   const winLabel = k => BRK_VAL_WINDOWS.find(w => w[0] === k)[1];
@@ -288,7 +330,7 @@ async function buildBrokersValuation() {
       v('upside', 'base') == null ? '' : `<span data-vk="up-base">${rxChangeHTML(v('upside', 'base'))}</span> vs the close`, { accent: true }),
     rxKpi('Bear – bull', `<span data-vk="net-bear">${rxRupee(v('net', 'bear'), 0)}</span> – <span data-vk="net-bull">${rxRupee(v('net', 'bull'), 0)}</span>`,
       `<span data-vk="up-bear">${rxChangeHTML(v('upside', 'bear'))}</span> to <span data-vk="up-bull">${rxChangeHTML(v('upside', 'bull'))}</span>`),
-    rxKpi('Current ADR', `${rxCr(inp('adr_now'), 2)}<small> / day</small>`, escHtml((I.adr_now?.rule || '').replace(/^mean daily ADR \(broking \+ MTF\) over /, ''))),
+    rxKpi('<span data-vk="adr-lbl">Current ADR</span>', `<span data-vk="adr-v">${rxCr(inp('adr_now'), 2)}<small> / day</small></span>`, `<span data-vk="adr-s">${escHtml(adrSub)}</span>`),
     rxKpi('Regression R²', fmtNum(inp('r2'), 3), `${fmtNum(inp('fit_days'), 0)} days in the fit`),
   ].join('');
 
@@ -327,7 +369,7 @@ async function buildBrokersValuation() {
       ${wst ? `<div class="brk-val-wbar"><button type="button" class="rx-btn" data-val-reset>Reset weights to published</button>
         <p class="rx-foot" data-val-state role="status" aria-live="polite"></p></div>` : ''}`,
     foot: `Regression: ${escHtml(I.slope ? `price = ${fmtNum(inp('slope'), 3)} × 45-day ADR + ${fmtNum(inp('intercept'), 2)}` : '—')}; bear / bull move the slope term by ∓ ${pct(inp('band') || 0)}.
-      Ratio: price ÷ 45-day ADR, mean ${fmtNum(inp('ratio_mean'), 2)} ± 1 SD ${fmtNum(inp('ratio_sd'), 2)}, × the current ADR.
+      Ratio: price ÷ 45-day ADR, mean ${fmtNum(inp('ratio_mean'), 2)} ± 1 SD ${fmtNum(inp('ratio_sd'), 2)}, × ${ast ? 'the ADR above' : 'the current quarter\'s ADR'}; the regression too is valued at ${ast ? 'that ADR' : 'it'}.
       ADR: the PAT Predictor tab's FY 2028 target price today (P/E × EPS, discounted)${ovr ? `, here at the inputs you set on that tab (${escHtml(patLive.desc)}), so the ADR row, the net value and the upside are recalculated on this page with the weights in the table; reset them there to see the published figures` : ''}.
       ${wst ? 'Weights: type your own and the net value and upside are recalculated on this page (Σ weight × price; weights that do not add up to 100 % are scaled to it); edits are not saved.' : ''}
       ${ast ? `The regression and ratio rows value the ADR in the panel above (published: ${escHtml(adrQ || 'the current quarter')}'s average so far, ${fmtNum(adr0, 2)}); pick the 45-DMA or type your own and they are recalculated with this window's fit, then the net value and upside. Not saved.` : ''}`,
@@ -365,7 +407,7 @@ async function buildBrokersValuation() {
   </div></div>`;
   const root = el.firstElementChild;
   rxOnSeg(root, 'brkValWin', k => { st.win = k; st.chart = {}; buildBrokersValuation(); });
-  if (wst) brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId: val.run.run_id, broker: BRK_BROKER.id, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal });
+  if (wst) brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId: val.run.run_id, broker: BRK_BROKER.id, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal, adrSub });
 
   const xTicks = dates => ({ grid: { display: false }, afterBuildTicks: brkMonthTicks(dates, 6), ticks: { maxTicksLimit: 6, maxRotation: 0, autoSkip: true } });
   const rupee = { ticks: { callback: x => '₹' + fmtNum(x, 0) } };
