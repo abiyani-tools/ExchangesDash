@@ -265,6 +265,16 @@ class ValuationAdrInput(unittest.TestCase):
         self.assertAlmostEqual(out["net"]["base"], want)
         self.assertAlmostEqual(out["upside"]["base"], want / 224.95 - 1)
 
+    def test_the_45dma_basis_is_the_latest_published_45dma(self):
+        # the series' last day can lack a 45-DMA (no price yet): the basis is the latest day that has one
+        days = [{"date": "2026-11-11", "dma": 21.4}, {"date": "2026-11-12", "dma": 21.52}, {"date": "2026-11-13", "dma": None}]
+        self.assertEqual(js_eval(["brkValLatestDma"], "brkValLatestDma(DATA)", days), {"date": "2026-11-12", "dma": 21.52})
+        self.assertIsNone(js_eval(["brkValLatestDma"], "brkValLatestDma([])"))
+        # regression and ratio at the 45-DMA, from the same fit
+        out = js_eval(self.NAMES, "brkValAtAdr(DATA.fit, 21.52)", {"fit": self.FIT})
+        self.assertAlmostEqual(out["regression"]["base"], self.FIT["slope"] * 21.52 + self.FIT["intercept"])
+        self.assertAlmostEqual(out["ratio"]["bear"], (self.FIT["mean"] - self.FIT["sd"]) * 21.52)
+
 
 @unittest.skipUnless(NODE, "node not installed")
 class ValuationPeWindows(unittest.TestCase):
@@ -304,6 +314,12 @@ class Markup(unittest.TestCase):
         self.assertIn("data-val-adr-default", src)      # back to the published current quarter's ADR
         self.assertIn('data-vm="${m}|${s}"', src)       # the regression and ratio cells it recalculates
         self.assertIn("const BRK_VAL_ADR = {};", src)   # memory only, per broker and run
+
+    def test_valuation_adr_basis_toggle_sits_above_the_valuation(self):
+        src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()
+        self.assertIn('data-rx-seg="brkValAdrBasis"', src)          # 45-DMA | quarter average
+        self.assertIn("rxOnSeg(root, 'brkValAdrBasis'", src)       # a pick fills the input with that basis
+        self.assertIn("${adrPanel}${triangulation}", src)          # its own panel, right above the valuation
 
     def test_each_valuation_chart_has_its_own_timeline(self):
         src = (ROOT / "dashboard" / "js" / "34-brokers-valuation.js").read_text()

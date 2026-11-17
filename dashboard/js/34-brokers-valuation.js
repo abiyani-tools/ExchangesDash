@@ -28,9 +28,18 @@ BRK.valView = { win: 'all' };
 // The method weights as the reader set them, per broker id: { run, w: { method: fraction } }. Kept only
 // while they differ from the published weights; memory only, never saved.
 const BRK_VAL_W = {};
-// The reader's ADR for the regression and ratio methods, per broker id: { run, adr } (₹ Cr / day). Kept only
-// while it differs from the published current ADR; memory only, never saved.
+// The reader's ADR for the regression and ratio methods, per broker id: { run, basis, adr } (₹ Cr / day; basis
+// 'qtd' the current quarter's average so far, as published, or 'dma' the latest 45-day ADR). Kept only while it
+// differs from the published one; memory only, never saved.
 const BRK_VAL_ADR = {};
+// The ADR bases of the toggle above the valuation: [key, label]
+const BRK_VAL_ADR_BASES = [['dma', '45-DMA'], ['qtd', 'quarter average']];
+
+// The latest 45-day ADR in the published series: { date, dma } (null without one)
+function brkValLatestDma(days) {
+  for (let i = days.length - 1; i >= 0; i--) if (days[i].dma != null) return { date: days[i].date, dma: days[i].dma };
+  return null;
+}
 
 // The regression and ratio methods' bear / base / bull at an ADR (₹ Cr / day), from a window's published fit:
 // the engine's valuation.regression (slope × ADR + intercept; bear / bull move slope × ADR by ∓ band) and
@@ -83,9 +92,10 @@ function brkValScale(w) {
 // re-weighted in place as the reader types (the charts don't depend on the weights).
 // W: published weights; wst: the weights shown (edited in place); vals: each method's price per
 // scenario (ADR leg at the PAT Predictor's inputs when patOn); ovr: brkValReweight at W, or null.
-// ast: { adr } the ADR the regression and ratio methods use (edited in place), adr0 the published one, fit the
-// window's published fit (brkValAtAdr), adrQ its quarter; ast is null when the fit isn't published.
-function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId, broker, ast, adr0, fit, adrQ }) {
+// ast: { basis, adr } the ADR the regression and ratio methods use and the basis toggle's pick (edited in place),
+// adr0 the published one (the quarter's average so far), dmaNow the latest 45-DMA, fit the window's published fit
+// (brkValAtAdr), adrQ the quarter, basisLbl / basisVal a basis's label and ADR; ast is null when the fit isn't published.
+function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId, broker, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal }) {
   const ins = [...root.querySelectorAll('[data-vw]')];
   const adrIn = root.querySelector('[data-vadr]');
   const near = (a, b) => Math.abs(a - b) < 1e-9;
@@ -103,7 +113,7 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
     const fig = (line, s) => (re ? re[line][s] : any ? null : S[line]?.[s]?.value ?? null);
     const why = re ? `recalculated on this page: Σ weight × price at ${edited
       ? `your weights ${BRK_VAL_METHODS.map(([m]) => fmtNum(wst[m] * 100, 0)).join(' / ')} %${near(sum, 1) ? '' : ' (scaled to 100 %)'}`
-      : 'the published weights'}${adrOn ? `, regression and ratio at your ADR ${adrTxt(ast.adr)}` : ''}${patOn ? `, the ADR leg at the PAT Predictor's inputs (${patLive.desc})` : ''}` : '';
+      : 'the published weights'}${adrOn ? `, regression and ratio at the ADR above, ${adrTxt(ast.adr)}` : ''}${patOn ? `, the ADR leg at the PAT Predictor's inputs (${patLive.desc})` : ''}` : '';
     // the regression and ratio rows: at the reader's ADR, or as published
     root.querySelectorAll('[data-vm]').forEach(td => {
       const [m, s] = td.dataset.vm.split('|'), x = adrOn ? at[m][s] : S[m]?.[s]?.value;
@@ -111,8 +121,8 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
       td.classList.toggle('brk-pat-chg', adrOn);
       const f = fit, a = ast?.adr;
       const rule = !adrOn ? S[m]?.[s]?.rule || ''
-        : m === 'regression' ? `${fmtNum(f.slope, 3)} × ${fmtNum(a, 2)}${s === 'base' ? '' : ` × (1 ${s === 'bear' ? '−' : '+'} ${pctTxt(f.band)})`} ${f.intercept < 0 ? '−' : '+'} ${fmtNum(Math.abs(f.intercept), 2)}: recalculated on this page at your ADR`
-          : `(${fmtNum(f.mean, 2)}${s === 'base' ? '' : ` ${s === 'bear' ? '−' : '+'} ${fmtNum(f.sd, 2)}`}) × ${fmtNum(a, 2)}: recalculated on this page at your ADR`;
+        : m === 'regression' ? `${fmtNum(f.slope, 3)} × ${fmtNum(a, 2)}${s === 'base' ? '' : ` × (1 ${s === 'bear' ? '−' : '+'} ${pctTxt(f.band)})`} ${f.intercept < 0 ? '−' : '+'} ${fmtNum(Math.abs(f.intercept), 2)}: recalculated on this page at the ADR above`
+          : `(${fmtNum(f.mean, 2)}${s === 'base' ? '' : ` ${s === 'bear' ? '−' : '+'} ${fmtNum(f.sd, 2)}`}) × ${fmtNum(a, 2)}: recalculated on this page at the ADR above`;
       if (rule) td.title = rule; else td.removeAttribute('title');
     });
     root.querySelectorAll('[data-vv]').forEach(td => {
@@ -142,12 +152,18 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
         : `Showing your weights${near(sum, 1) ? '' : `, which add up to ${pctTxt(sum)} and are scaled to 100 %`}; the net value and upside are recalculated (tinted). Not saved.`;
     if (edited) BRK_VAL_W[broker] = { run: runId, w: { ...wst } }; else delete BRK_VAL_W[broker];
     if (ast) {
-      adrIn.classList.toggle('is-edited', adrOn);
-      root.querySelector('[data-val-adr-default]').disabled = !adrOn;
-      root.querySelector('[data-val-adr-state]').textContent = adrOn
-        ? `Regression and ratio at your ADR, ${adrTxt(ast.adr)} (${rxSignedPct(ast.adr / adr0 - 1)} vs ${adrQ ? `${adrQ}'s` : 'the current'} ${fmtNum(adr0, 2)}); they, the net value and the upside are recalculated (tinted). Not saved.`
-        : `Regression and ratio at ${adrQ ? `${adrQ}'s` : 'the current quarter\'s'} ADR so far, ${adrTxt(adr0)} (published).`;
-      if (adrOn) BRK_VAL_ADR[broker] = { run: runId, adr: ast.adr }; else delete BRK_VAL_ADR[broker];
+      const b0 = basisVal(ast.basis), typed = !near(ast.adr, b0);   // typed: the input differs from the basis
+      adrIn.classList.toggle('is-edited', typed);
+      const def = root.querySelector('[data-val-adr-default]');
+      def.disabled = !typed;
+      def.textContent = `Default: ${basisLbl(ast.basis)} ${fmtNum(b0, 2)}`;
+      const vsQ = `${rxSignedPct(ast.adr / adr0 - 1)} vs ${adrQ ? `${adrQ}'s` : 'the quarter\'s'} average ${fmtNum(adr0, 2)}`;
+      root.querySelector('[data-val-adr-state]').textContent = !adrOn
+        ? `Regression and ratio at ${adrQ ? `${adrQ}'s` : 'the current quarter\'s'} average ADR so far, ${adrTxt(adr0)} (published).`
+        : !typed && ast.basis === 'dma'
+          ? `Regression and ratio at the 45-DMA, ${adrTxt(ast.adr)} on ${fmtLongDate(dmaNow.date)} (${vsQ}); they, the net value and the upside are recalculated (tinted). Not saved.`
+          : `Regression and ratio at your ADR, ${adrTxt(ast.adr)} (${vsQ}); they, the net value and the upside are recalculated (tinted). Not saved.`;
+      if (adrOn || ast.basis !== 'qtd') BRK_VAL_ADR[broker] = { run: runId, basis: ast.basis, adr: ast.adr }; else delete BRK_VAL_ADR[broker];
     }
   };
   setInputs();
@@ -172,8 +188,15 @@ function brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive,
     setInputs();
     paint();
   });
+  // Default: back to the picked basis's ADR; the toggle: a basis, and its ADR into the input
   root.querySelector('[data-val-adr-default]')?.addEventListener('click', () => {
-    ast.adr = adr0;
+    ast.adr = basisVal(ast.basis);
+    setAdr();
+    paint();
+  });
+  if (ast) rxOnSeg(root, 'brkValAdrBasis', k => {
+    ast.basis = k;
+    ast.adr = basisVal(k);
     setAdr();
     paint();
   });
@@ -235,9 +258,10 @@ async function buildBrokersValuation() {
   const adr0 = inp('adr_now');
   const fit = { slope: inp('slope'), intercept: inp('intercept'), band: inp('band'), mean: inp('ratio_mean'), sd: inp('ratio_sd') };
   const adrQ = ((/ of (Q\d FY \d{4})/.exec(I.adr_now?.rule || '') || [])[1] || '').replace(' FY 20', ' FY');
-  const aSaved = BRK_VAL_ADR[BRK_BROKER.id];
+  const dmaNow = brkValLatestDma(X.days);   // the 45-DMA basis: the series' latest 45-day ADR
+  const aSaved = BRK_VAL_ADR[BRK_BROKER.id], aKeep = aSaved && aSaved.run === val.run.run_id;
   const ast = wst && adr0 && Object.values(fit).every(x => x != null)
-    ? { adr: aSaved && aSaved.run === val.run.run_id ? aSaved.adr : adr0 } : null;
+    ? { basis: aKeep && (aSaved.basis !== 'dma' || dmaNow) ? aSaved.basis : 'qtd', adr: aKeep ? aSaved.adr : adr0 } : null;
   const v = (line, s) => (ovr && ovr[line] ? ovr[line][s] : S[line]?.[s]?.value ?? null);
   const ovrRule = line => (ovr && ovr[line] ? ` title="${escHtml(`recalculated on this page from the PAT Predictor tab's inputs (${patLive.desc})`)}"` : null);
   const winLabel = k => BRK_VAL_WINDOWS.find(w => w[0] === k)[1];
@@ -274,15 +298,27 @@ async function buildBrokersValuation() {
     : `<td>${X.weight[m] ? pct(X.weight[m].value) : '—'}</td>`);
   const row = ([m, lbl]) => `<tr><td class="rx-l">${escHtml(lbl)}</td>${wCell(m, lbl)}${BRK_VAL_SCEN.map(([s]) =>
     `<td${tip(S[m]?.[s], m)}${ovr && ovr[m] ? ' class="brk-pat-chg"' : ''}${ast && m !== 'adr' ? ` data-vm="${m}|${s}"` : ''}>${v(m, s) == null ? '—' : fmtNum(v(m, s), 2)}</td>`).join('')}</tr>`;
-  // the ADR input of the regression and ratio methods, with Default (the published current quarter's ADR)
-  const adrBar = ast ? `<div class="brk-val-adr">
-      <label for="${`brk-${BRK_BROKER.view}-val-adr`}">ADR for regression and ratio</label>
-      <span class="brk-val-adr-in"><input id="${`brk-${BRK_BROKER.view}-val-adr`}" class="rx-in rx-num-in" type="number" step="0.5" min="0" inputmode="decimal" data-vadr aria-describedby="${`brk-${BRK_BROKER.view}-val-adr-st`}"><span class="brk-val-unit">₹ Cr / day</span></span>
-      <button type="button" class="rx-btn" data-val-adr-default>Default: ${escHtml(adrQ || 'current quarter')} ADR ${fmtNum(adr0, 2)}</button>
-      <p class="rx-foot" id="${`brk-${BRK_BROKER.view}-val-adr-st`}" data-val-adr-state role="status" aria-live="polite"></p></div>` : '';
+  // the ADR the regression and ratio methods value at (its own panel, right above the valuation): a toggle between
+  // the latest 45-DMA and the current quarter's average so far (the published one), and an input for any ADR
+  const basisLbl = k => (k === 'dma' ? '45-DMA' : `${adrQ || 'Quarter'} average`);
+  const basisVal = k => (k === 'dma' ? dmaNow?.dma : adr0);
+  const adrPanel = ast ? rxPanel({
+    title: 'ADR for regression and ratio', meta: '₹ Cr / day, broking + MTF · the PAT model (ADR method) is not affected',
+    body: `<div class="brk-val-adr">
+      <div><div class="rx-lbl">Basis</div><div class="rx-seg" role="group" aria-label="ADR basis" data-rx-seg="brkValAdrBasis">${BRK_VAL_ADR_BASES.map(([k]) => {
+        const x = basisVal(k);
+        return `<button type="button" data-value="${k}" aria-pressed="${k === ast.basis}"${x == null ? ' disabled' : ''} title="${escHtml(k === 'dma'
+          ? (dmaNow ? `45-day average of daily ADR on ${fmtLongDate(dmaNow.date)}` : 'no 45-day ADR published')
+          : (I.adr_now?.rule || ''))}">${escHtml(basisLbl(k))}${x == null ? '' : ` · ${fmtNum(x, 2)}`}</button>`;
+      }).join('')}</div></div>
+      <div><label class="rx-lbl" for="${`brk-${BRK_BROKER.view}-val-adr`}">ADR (type your own)</label>
+        <span class="brk-val-adr-in"><input id="${`brk-${BRK_BROKER.view}-val-adr`}" class="rx-in rx-num-in" type="number" step="0.5" min="0" inputmode="decimal" data-vadr aria-describedby="${`brk-${BRK_BROKER.view}-val-adr-st`}"><span class="brk-val-unit">₹ Cr / day</span></span></div>
+      <button type="button" class="rx-btn" data-val-adr-default>Default</button>
+      <p class="rx-foot" id="${`brk-${BRK_BROKER.view}-val-adr-st`}" data-val-adr-state role="status" aria-live="polite"></p></div>`,
+  }) : '';
   const triangulation = rxPanel({
     title: 'Valuation: three methods', meta: `₹ per share · ${escHtml(winLabel(fitWin))}${ovr ? ' · ADR method at the PAT Predictor\'s inputs' : ''} · hover a figure for its arithmetic`,
-    body: `${adrBar}<div class="rx-scroll"><table class="rx-table brk-val-table">
+    body: `<div class="rx-scroll"><table class="rx-table brk-val-table">
       <thead><tr><th scope="col" class="rx-l">Method</th><th scope="col">Weight</th>${BRK_VAL_SCEN.map(([, l]) => `<th scope="col">${l}</th>`).join('')}</tr></thead>
       <tbody>${BRK_VAL_METHODS.map(row).join('')}
         <tr class="rx-sub"><td class="rx-l">Net value (weighted)</td><td data-vsum>100 %</td>${BRK_VAL_SCEN.map(([s]) => `<td data-vv="net|${s}"${tip(S.net?.[s], 'net')}${ovr ? ' class="brk-pat-chg"' : ''}>${fmtNum(v('net', s), 2)}</td>`).join('')}</tr>
@@ -294,7 +330,7 @@ async function buildBrokersValuation() {
       Ratio: price ÷ 45-day ADR, mean ${fmtNum(inp('ratio_mean'), 2)} ± 1 SD ${fmtNum(inp('ratio_sd'), 2)}, × the current ADR.
       ADR: the PAT Predictor tab's FY 2028 target price today (P/E × EPS, discounted)${ovr ? `, here at the inputs you set on that tab (${escHtml(patLive.desc)}), so the ADR row, the net value and the upside are recalculated on this page with the weights in the table; reset them there to see the published figures` : ''}.
       ${wst ? 'Weights: type your own and the net value and upside are recalculated on this page (Σ weight × price; weights that do not add up to 100 % are scaled to it); edits are not saved.' : ''}
-      ${ast ? `ADR: type a daily ADR (broking + MTF, ₹ Cr / day) and the regression and ratio rows are recalculated at it with this window's fit, then the net value and upside; Default goes back to ${escHtml(adrQ || 'the current quarter')}'s ADR so far (${fmtNum(adr0, 2)}). Not saved.` : ''}`,
+      ${ast ? `The regression and ratio rows value the ADR in the panel above (published: ${escHtml(adrQ || 'the current quarter')}'s average so far, ${fmtNum(adr0, 2)}); pick the 45-DMA or type your own and they are recalculated with this window's fit, then the net value and upside. Not saved.` : ''}`,
     how: rxHow('Inputs and their source', `<div class="rx-scroll"><table class="rx-table">
       <tbody>${Object.values(I).sort((a, b) => a.sort_order - b.sort_order).map(r => `<tr><td class="rx-l">${escHtml(r.label)}</td><td>${r.unit === 'fraction' ? fmtNum(r.value, 3) : fmtNum(r.value, r.unit === 'days' ? 0 : 2)}</td><td class="rx-l rx-wrap">${escHtml(r.rule || '')}</td></tr>`).join('')}</tbody></table></div>
       <p class="rx-foot">The weights, band, 45-day window and series start are rows of <code>sb_assumptions</code> (key prefix <code>val_</code>) in the brokers-dashboard project, each naming its workbook cell.</p>`),
@@ -324,12 +360,12 @@ async function buildBrokersValuation() {
     ${rxAlert(`<strong>Valuation, as the engine published it</strong> from ${name}'s daily ADR (run <code title="${escHtml(val.run.run_id)}">${escHtml(val.run.run_id.slice(0, 8))}</code>, as of ${escHtml(fmtLongDate(val.run.as_of_date))})${sameRun ? '' : ', an earlier run than the ADR tabs show: the valuation has not been published for the latest run yet'}. ${ovr ? `The ADR method uses the PAT Predictor tab's inputs as you edited them (${escHtml(patLive.desc)}): it, the net value and the upside are recalculated on this page; every other figure is the engine's.` : 'Every figure is the engine\'s; the page only draws chart lines from its published parameters.'}`, 'info')}
     ${controls}
     <section class="rx-kpis" aria-label="Valuation summary">${kpis}</section>
-    ${triangulation}
+    ${adrPanel}${triangulation}
     <div class="rx-row">${charts.join('')}</div>
   </div></div>`;
   const root = el.firstElementChild;
   rxOnSeg(root, 'brkValWin', k => { st.win = k; st.chart = {}; buildBrokersValuation(); });
-  if (wst) brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId: val.run.run_id, broker: BRK_BROKER.id, ast, adr0, fit, adrQ });
+  if (wst) brkValWeightInputs(root, { W, wst, vals, S, ovr, close, patOn, patLive, runId: val.run.run_id, broker: BRK_BROKER.id, ast, adr0, fit, adrQ, dmaNow, basisLbl, basisVal });
 
   const xTicks = dates => ({ grid: { display: false }, afterBuildTicks: brkMonthTicks(dates, 6), ticks: { maxTicksLimit: 6, maxRotation: 0, autoSkip: true } });
   const rupee = { ticks: { callback: x => '₹' + fmtNum(x, 0) } };
