@@ -1,10 +1,10 @@
 {
-  "updated_at": "2026-11-17T11:00:31Z",
+  "updated_at": "2026-11-18T03:25:29Z",
   "market_status": {
     "marketState": [
       {
         "market": "Capital Market",
-        "marketStatus": "Closed",
+        "marketStatus": "Open",
         "tradeDate": "17-Nov-2026 15:30",
         "index": "NIFTY 50",
         "last": 25387.4,
@@ -15,32 +15,32 @@
       {
         "market": "Currency",
         "marketStatus": "Open",
-        "tradeDate": "17-Nov-2026",
+        "tradeDate": "18-Nov-2026",
         "index": "",
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Open"
+        "marketStatusMessage": "Market is Closed"
       },
       {
         "market": "Commodity",
         "marketStatus": "Open",
-        "tradeDate": "17-Nov-2026",
+        "tradeDate": "18-Nov-2026",
         "index": "",
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Open"
+        "marketStatusMessage": "Market is Closed"
       },
       {
         "market": "Debt",
         "marketStatus": "Open",
-        "tradeDate": "17-Nov-2026",
+        "tradeDate": "18-Nov-2026",
         "index": "",
         "last": "",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Open"
+        "marketStatusMessage": "Market is Closed"
       },
       {
         "index": "NIFTY50 USD",
@@ -52,16 +52,16 @@
       {
         "market": "currencyfuture",
         "marketStatus": "Open",
-        "tradeDate": "17-Nov-2026",
+        "tradeDate": "18-Nov-2026",
         "index": "",
-        "last": "93.5725",
+        "last": "93.5600",
         "variation": "",
         "percentChange": "",
-        "marketStatusMessage": "Market is Open",
+        "marketStatusMessage": "Market is Closed",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "17-Nov-2026 16:29",
-        "tradeDateFormatted": "17-Nov-2026 16:29",
+        "updated_time": "17-Nov-2026 17:05",
+        "tradeDateFormatted": "17-Nov-2026 17:05",
         "slickclass": "slick-item"
       }
     ],
@@ -88,16 +88,16 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 65230,
-      "DAYCHANGE": 9.5,
+      "CONTRACTSTRADED": 7375,
+      "DAYCHANGE": -96.5,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
-      "LASTPRICE": 25387.5,
+      "LASTPRICE": 25254,
       "OPTIONTYPE": "-",
-      "PERCHANGE": 0.04,
+      "PERCHANGE": -0.38,
       "STRIKEPRICE": 0,
       "SYMBOL": "NIFTY",
-      "TIMESTMP": "17-Nov-2026 16:27",
+      "TIMESTMP": "18-Nov-2026 08:53",
       "id": "0/NIFTYFUTIDX23-Nov-2026--"
     },
     "niftyusd": {
@@ -125,7 +125,8 @@
     "cash_revenue": 7.157,
     "total_revenue": 80.9518,
     "has_data": true,
-    "source": "live"
+    "source": "live",
+    "stale_since": "2026-11-17T11:00:31Z"
   },
   "history": [
     {
@@ -338,25 +339,22 @@
       }
     },
     {
-      "timestamp": "2026-11-17",
+      "timestamp": "17-Nov-2026",
       "revenue": {
-        "trade_date": "2026-11-17",
+        "has_data": true,
+        "trade_date": "17-Nov-2026",
+        "futures_turnover": 135389.01,
+        "options_premium": 96875.25,
+        "cash_traded_value": 121025.07,
         "index_futures_turnover": 21442.36,
         "stock_futures_turnover": 113946.65,
-        "futures_turnover": 135389.01,
         "index_options_premium": 87889.11,
         "stock_options_premium": 8986.14,
-        "options_premium": 96875.25,
-        "cash_traded_value": 116563.14,
-        "take_rate_futures": 3.66e-05,
-        "take_rate_options": 0.0007106,
-        "take_rate_cash": 6.14e-05,
         "futures_revenue": 4.9552,
         "options_revenue": 68.8396,
-        "cash_revenue": 7.157,
-        "total_revenue": 80.9518,
-        "has_data": true,
-        "source": "live"
+        "cash_revenue": 7.4309,
+        "total_revenue": 81.2257,
+        "source": "historical"
       }
     }
   ],
