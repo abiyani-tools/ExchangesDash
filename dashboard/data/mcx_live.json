@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-11-18T09:30:26Z",
+  "updated_at": "2026-11-18T09:35:28Z",
   "stock_price": {
-    "last_price": 3619.1,
+    "last_price": 3598.2,
     "previous_close": 3705.4,
     "open": 3705.4,
     "day_high": 3774.0,
-    "day_low": 3618.0,
-    "pct_change": -2.33
+    "day_low": 3595.5,
+    "pct_change": -2.89
   }
 }
