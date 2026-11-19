@@ -1,16 +1,16 @@
 {
-  "updated_at": "2026-11-19T03:35:32Z",
+  "updated_at": "2026-11-19T03:40:24Z",
   "market_status": {
     "marketState": [
       {
         "market": "Capital Market",
         "marketStatus": "Open",
-        "tradeDate": "19-Nov-2026 09:04",
+        "tradeDate": "19-Nov-2026 09:10",
         "index": "NIFTY 50",
-        "last": 25247.05,
-        "variation": 19.099999999998545,
-        "percentChange": 0.08,
-        "marketStatusMessage": "Market in Pre-Open session"
+        "last": 25186.8,
+        "variation": -41.150000000001455,
+        "percentChange": -0.16,
+        "marketStatusMessage": "Pre-Open Session Closed \u2013 Normal Market will begin shortly"
       },
       {
         "market": "Currency",
@@ -44,10 +44,10 @@
       },
       {
         "index": "NIFTY50 USD",
-        "last": 9362.15,
-        "change": 7.719999999999345,
-        "percentChange": 0.08,
-        "timestamp": "19-Nov-2026 09:04"
+        "last": 9340.1,
+        "change": -14.329999999999927,
+        "percentChange": -0.15,
+        "timestamp": "19-Nov-2026 09:10"
       },
       {
         "market": "currencyfuture",
@@ -60,8 +60,8 @@
         "marketStatusMessage": "Market is Open",
         "expiryDate": "26-Nov-2026",
         "underlying": "USDINR",
-        "updated_time": "19-Nov-2026 09:05",
-        "tradeDateFormatted": "19-Nov-2026 09:05",
+        "updated_time": "19-Nov-2026 09:10",
+        "tradeDateFormatted": "19-Nov-2026 09:10",
         "slickclass": "slick-item"
       }
     ],
@@ -88,42 +88,42 @@
       "status": "CLOSE"
     },
     "giftnifty": {
-      "CONTRACTSTRADED": 9802,
-      "DAYCHANGE": -32,
+      "CONTRACTSTRADED": 10236,
+      "DAYCHANGE": -38.5,
       "EXPIRYDATE": "23-Nov-2026",
       "INSTRUMENTTYPE": "FUTIDX",
-      "LASTPRICE": 25166.5,
+      "LASTPRICE": 25160,
       "OPTIONTYPE": "-",
-      "PERCHANGE": -0.13,
+      "PERCHANGE": -0.15,
       "STRIKEPRICE": 0,
       "SYMBOL": "NIFTY",
-      "TIMESTMP": "19-Nov-2026 09:03",
+      "TIMESTMP": "19-Nov-2026 09:09",
       "id": "1/NIFTYFUTIDX23-Nov-2026--"
     },
     "niftyusd": {
       "index": "NIFTY50 USD",
-      "last": 9362.15,
-      "change": 7.719999999999345,
-      "percentChange": 0.08,
-      "timestamp": "19-Nov-2026 09:04"
+      "last": 9340.1,
+      "change": -14.329999999999927,
+      "percentChange": -0.15,
+      "timestamp": "19-Nov-2026 09:10"
     }
   },
   "revenue": {
     "trade_date": "2026-11-19",
-    "index_futures_turnover": 0.0,
-    "stock_futures_turnover": 0.0,
-    "futures_turnover": 0.0,
+    "index_futures_turnover": 12.1,
+    "stock_futures_turnover": 67.35,
+    "futures_turnover": 79.45,
     "index_options_premium": 0.0,
     "stock_options_premium": 0.0,
     "options_premium": 0.0,
-    "cash_traded_value": 1540.0,
+    "cash_traded_value": 2038.11,
     "take_rate_futures": 3.66e-05,
     "take_rate_options": 0.0007106,
     "take_rate_cash": 6.14e-05,
-    "futures_revenue": 0.0,
+    "futures_revenue": 0.0029,
     "options_revenue": 0.0,
-    "cash_revenue": 0.0946,
-    "total_revenue": 0.0946,
+    "cash_revenue": 0.1251,
+    "total_revenue": 0.128,
     "has_data": true,
     "source": "live"
   },
@@ -379,20 +379,20 @@
       "timestamp": "2026-11-19",
       "revenue": {
         "trade_date": "2026-11-19",
-        "index_futures_turnover": 0.0,
-        "stock_futures_turnover": 0.0,
-        "futures_turnover": 0.0,
+        "index_futures_turnover": 12.1,
+        "stock_futures_turnover": 67.35,
+        "futures_turnover": 79.45,
         "index_options_premium": 0.0,
         "stock_options_premium": 0.0,
         "options_premium": 0.0,
-        "cash_traded_value": 1540.0,
+        "cash_traded_value": 2038.11,
         "take_rate_futures": 3.66e-05,
         "take_rate_options": 0.0007106,
         "take_rate_cash": 6.14e-05,
-        "futures_revenue": 0.0,
+        "futures_revenue": 0.0029,
         "options_revenue": 0.0,
-        "cash_revenue": 0.0946,
-        "total_revenue": 0.0946,
+        "cash_revenue": 0.1251,
+        "total_revenue": 0.128,
         "has_data": true,
         "source": "live"
       }
