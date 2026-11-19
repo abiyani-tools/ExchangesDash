@@ -1,14 +1,14 @@
 {
-  "updated_at": "2026-11-19T03:30:36Z",
+  "updated_at": "2026-11-19T03:35:28Z",
   "sensex": {
-    "last": 81796.62,
-    "change": -235.19,
-    "pct_change": -0.29,
+    "last": 82124.37,
+    "change": 92.56,
+    "pct_change": 0.11,
     "prev_close": 82031.81,
     "open": 0.0,
     "high": 0.0,
     "low": 0.0,
-    "datetime": "19 Nov 26 | 09:00",
+    "datetime": "19 Nov 26 | 09:04",
     "status": "Closed"
   },
   "market_stat": {
